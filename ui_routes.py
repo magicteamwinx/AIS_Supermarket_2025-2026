@@ -189,3 +189,70 @@ def api_quick_scan(upc: str, db: sqlite3.Connection = Depends(get_db)):
         "stock": product["products_number"],
         "is_promo": bool(product["promotional_product"])
     }
+
+#ендпоінт для сторінки профіля
+@router.get("/profile", response_class=HTMLResponse)
+def ui_profile(
+    request: Request, 
+    current_user: dict = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db)
+):
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (current_user["id"],))
+    profile_data = cursor.fetchone()
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="profile.html", 
+        context={
+            "user": current_user,
+            "profile_data": profile_data
+        }
+    )
+
+@router.get("/customers", response_class=HTMLResponse)
+def ui_customers(
+    request: Request, 
+    surname: str | None = None,
+    percent: int | None = None,
+    current_user: dict = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db)
+):
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        
+    db.create_function("py_lower", 1, lambda x: x.lower() if x else x)
+    cursor = db.cursor()
+    
+    query = "SELECT * FROM Customer_Card"
+    conds = []
+    params = []
+    
+    # Фільтри пошуку
+    if surname:
+        conds.append("py_lower(cust_surname) LIKE ?")
+        params.append(f"%{surname.lower()}%")
+    if percent is not None:
+        conds.append("percent = ?")
+        params.append(percent)
+        
+    if conds:
+        query += " WHERE " + " AND ".join(conds)
+        
+    query += " ORDER BY cust_surname"
+    cursor.execute(query, params)
+    cards = [dict(row) for row in cursor.fetchall()]
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="customers.html", 
+        context={
+            "user": current_user, 
+            "cards": cards, 
+            "search_surname": surname or "", 
+            "search_percent": percent or ""
+        }
+    )
