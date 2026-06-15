@@ -99,8 +99,7 @@ def dashboard_page(
     #дані менеджера
     if current_user["role"] == "Менеджер":
         
-        # 1. KPI за сьогодні (Загальна каса та кількість чеків)
-        # DATE('now', 'localtime') бере сьогоднішню дату в SQLite
+        #крі за сьогодні
         cursor.execute("""
             SELECT 
                 COUNT(check_number) as today_checks, 
@@ -110,7 +109,6 @@ def dashboard_page(
         """)
         kpi = cursor.fetchone()
         
-        # Якщо чеків ще немає, SUM поверне None, тому робимо перевірку
         context["today_checks"] = kpi["today_checks"] if kpi["today_checks"] else 0
         context["today_revenue"] = round(kpi["today_revenue"], 2) if kpi["today_revenue"] else 0.0
         
@@ -138,7 +136,7 @@ def dashboard_page(
 
     #дані касира
     elif current_user["role"] == "Касир":
-        # Рахуємо, скільки чеків пробив конкретно цей касир за свою поточну зміну
+        #перегляд чеків за сьогодні
         cursor.execute("""
             SELECT COUNT(check_number) as my_checks, SUM(sum_total) as my_revenue
             FROM Check_AIS
