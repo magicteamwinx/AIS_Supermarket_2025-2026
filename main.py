@@ -1,6 +1,4 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.staticfiles import StaticFiles
-from ui_routes import router as ui_router
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from security import SECRET_KEY, ALGORITHM
@@ -9,7 +7,7 @@ import sqlite3
 from database import get_db
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from security import verify_password, create_access_token, get_password_hash
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 class ProductCreate(BaseModel):
     category_number: int
     product_name: str
@@ -91,33 +89,22 @@ class EmployeeUpdate(BaseModel):
 
 app = FastAPI(title="ZLAGODA Mini-Supermarket")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# --- Підключення UI: статика (CSS) та сторінки інтерфейсу ---
+from fastapi.staticfiles import StaticFiles
+from ui_routes import router as ui_router
+from products_info_routes import router as products_info_router
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(ui_router)
+app.include_router(products_info_router)
 
 class CategoryCreate(BaseModel):
     category_name: str
 
-#авторизація для swagger
-@app.post("/api/login")
-def api_login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (form_data.username,))
-    user = cursor.fetchone()
-    
-    if not user or not verify_password(form_data.password, user["password_hash"]):
-        raise HTTPException(
-            status_code=400, 
-            detail="Неправильний ID або пароль",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    access_token = create_access_token(
-        data={"sub": user["id_employee"], "role": user["empl_role"]}
-    )
-    
-    return {"access_token": access_token, "token_type": "bearer"}
-
+@app.get("/")
+def read_root():
+    return {"message": "працює..."}
 #авторизація
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
@@ -723,7 +710,6 @@ def get_employees(
     db: sqlite3.Connection = Depends(get_db),
     current_user: dict = Depends(get_current_manager)
 ):
-    db.create_function("py_lower", 1, lambda x: x.lower() if x else x)
     cursor = db.cursor()
     query = """
         SELECT id_employee, empl_surname, empl_name, empl_patronymic, 
@@ -739,7 +725,7 @@ def get_employees(
         params.append(role)
     #пошук за прізвищем
     if surname:
-        conds.append("py_lower(empl_surname) LIKE ?")
+        conds.append("empl_surname LIKE ?")
         params.append(f"{surname}%")
         
     #всі умови задані для пошуку збираються в запит
