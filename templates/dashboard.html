@@ -88,12 +88,66 @@
     </div>
 
     <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 30px;">🔍 Міні-сканер (Швидка перевірка)</h3>
-    <div class="tile" style="display: flex; gap: 10px; align-items: center;">
-      <form action="/store-products" method="get" style="display: flex; width: 100%; gap: 10px; margin: 0;">
-        <input type="text" name="search_upc" placeholder="Введіть або відскануйте UPC товару..." style="flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); font-family: inherit;">
+    <div class="tile" style="display: flex; flex-direction: column; gap: 15px;">
+      
+      <form id="quick-scanner-form" style="display: flex; width: 100%; gap: 10px; margin: 0;">
+        <input type="text" id="scanner-input" placeholder="Введіть або відскануйте UPC товару..." style="flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); font-family: inherit;" required autocomplete="off">
         <button type="submit" class="btn primary">Перевірити ціну</button>
       </form>
+
+      <div id="scanner-result" style="display: none; padding-top: 15px; border-top: 1px dashed var(--line);">
+        </div>
+
     </div>
+
+    <script>
+      document.getElementById('quick-scanner-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        
+        const upcInput = document.getElementById('scanner-input');
+        const resultDiv = document.getElementById('scanner-result');
+        const upc = upcInput.value.trim();
+        
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<span style="color: var(--muted);">Шукаю товар у базі...</span>';
+        
+        try {
+          // Робимо "тихий" запит на наш новий API-ендпоінт
+          const response = await fetch(`/api/quick-scan/${upc}`);
+          
+          if (!response.ok) {
+            // Якщо сервер повернув 404 (Не знайдено)
+            resultDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ Товар зі штрих-кодом "${upc}" не знайдено!</div>`;
+            upcInput.select();
+            return;
+          }
+          
+          const data = await response.json();
+          
+          const stockColor = data.stock > 0 ? '#10b981' : 'var(--danger)';
+          const stockText = data.stock > 0 ? `В наявності: ${data.stock} шт` : 'Немає на складі!';
+          const promoBadge = data.is_promo ? `<span style="background: #fbbf24; color: #fff; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px;">АКЦІЯ</span>` : '';
+
+          resultDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 10px; border-radius: var(--radius);">
+              <div>
+                <div style="font-weight: bold; font-size: 18px; color: var(--text);">${data.name} ${promoBadge}</div>
+                <div style="font-size: 12px; color: var(--muted); font-family: monospace;">UPC: ${data.upc}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 22px; font-weight: bold; color: var(--accent);">${data.price.toFixed(2)} ₴</div>
+                <div style="font-size: 13px; color: ${stockColor}; font-weight: bold;">${stockText}</div>
+              </div>
+            </div>
+          `;
+          
+          upcInput.select();
+          
+        } catch (error) {
+          resultDiv.innerHTML = `<div style="color: var(--danger);">Помилка з'єднання з сервером.</div>`;
+        }
+      });
+    </script>
 
   {% endif %}
 

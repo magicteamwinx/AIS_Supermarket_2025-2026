@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, Form, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 from jose import jwt, JWTError
 import sqlite3
 from database import get_db
@@ -84,6 +85,13 @@ def login_page(request: Request):
         request=request, name="login.html", context={"user": None, "error": None}
     )
 
+#ендпоінт на вихід з акаунта
+@router.get("/logout")
+def logout():
+    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    response.delete_cookie("session_token")
+    return response
+
 #ендпоінт дашборду (головна сторінка)
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard_page(
@@ -153,10 +161,31 @@ def dashboard_page(
         context=context
     )
 
-#ендпоінт на вихід з акаунта
-@router.get("/logout")
-def logout():
-    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    response.delete_cookie("session_token")
-    return response
-
+#api-ендпоінт для швидкого сканера
+@router.get("/api/quick-scan/{upc}")
+def api_quick_scan(upc: str, db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT 
+            sp.UPC, 
+            sp.selling_price, 
+            sp.products_number, 
+            sp.promotional_product,
+            p.product_name
+        FROM Store_Product sp
+        JOIN Product p ON sp.id_product = p.id_product
+        WHERE sp.UPC = ?
+    """, (upc,))
+    
+    product = cursor.fetchone()
+    
+    if not product:
+        return JSONResponse(status_code=404, content={"detail": "Товар не знайдено"})
+        
+    return {
+        "upc": product["UPC"],
+        "name": product["product_name"],
+        "price": round(product["selling_price"], 2),
+        "stock": product["products_number"],
+        "is_promo": bool(product["promotional_product"])
+    }
