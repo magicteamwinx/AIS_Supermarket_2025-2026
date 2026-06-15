@@ -1,4 +1,4 @@
-{# templates/catalog.html — успадковує base.html, маршрут /products-info #}
+{# templates/products_info.html — успадковує base.html, маршрут /products-info #}
 {% extends "base.html" %}
 {% set is_manager = (user.role == "Менеджер") %}
 {% block title %}{{ "Асортимент та склад" if is_manager else "Каталог" }} — ZLAGODA{% endblock %}
@@ -7,17 +7,113 @@
 <div class="container">
 
   {% if is_manager %}
-    <h1 class="page-title">Асортимент та склад — наявність у залі</h1>
-    <p class="page-sub">Перегляд, пошук і керування товарами в залі. Повний доступ.</p>
+    <h1 class="page-title">Асортимент та склад</h1>
+    <p class="page-sub">Товари, наявність у залі та категорії. Повний доступ.</p>
   {% else %}
-    <h1 class="page-title">Каталог — перевірка наявності</h1>
+    <h1 class="page-title">Каталог</h1>
     <p class="page-sub">Перегляд і пошук товарів, цін та залишків. Тільки перегляд.</p>
   {% endif %}
 
   {% if msg %}<div class="flash flash-ok">{{ msg }}</div>{% endif %}
   {% if err %}<div class="flash flash-err">{{ err }}</div>{% endif %}
 
-  {# ── менеджер: виставити товар у залу ── #}
+  {# ── вкладки ── #}
+  <div class="cat-tabs">
+    <a href="/products-info?tab=store" class="cat-tab {{ 'active' if tab=='store' }}">Наявність у залі</a>
+    <a href="/products-info?tab=products" class="cat-tab {{ 'active' if tab=='products' }}">Товари</a>
+    {% if is_manager %}
+    <a href="/products-info?tab=categories" class="cat-tab {{ 'active' if tab=='categories' }}">Категорії</a>
+    {% endif %}
+  </div>
+
+  {# ========================= ВКЛАДКА: ТОВАРИ (М-9 / К-1) ========================= #}
+  {% if tab == 'products' %}
+  {% if is_manager %}
+  <details class="cat-panel">
+    <summary>+ Додати товар</summary>
+    <form method="post" action="/products-info/product/add">
+      <div class="cat-grid">
+        <div class="field"><label>Назва</label><input type="text" name="product_name" maxlength="50" required></div>
+        <div class="field">
+          <label>Категорія</label>
+          <select name="category_number" required>
+            {% for c in categories %}<option value="{{ c.category_number }}">{{ c.category_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field"><label>Характеристики</label><input type="text" name="characteristics" maxlength="100" required></div>
+      </div>
+      <div class="cat-actions"><button class="btn primary" type="submit">Додати</button></div>
+    </form>
+  </details>
+  {% endif %}
+
+  <form class="cat-filters" method="get" action="/products-info">
+    <input type="hidden" name="tab" value="products">
+    <div class="filter-item filter-search">
+      <label>Пошук</label>
+      <input type="text" name="q" value="{{ f.q }}" placeholder="Назва товару…">
+    </div>
+    <div class="filter-item">
+      <label>Категорія</label>
+      <select name="category">
+        <option value="">Усі категорії</option>
+        {% for c in categories %}<option value="{{ c.category_number }}" {{ 'selected' if f.category==c.category_number }}>{{ c.category_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Сортування</label>
+      <select name="sort">
+        <option value="name" {{ 'selected' if f.sort=='name' }}>за назвою</option>
+        <option value="category" {{ 'selected' if f.sort=='category' }}>за категорією</option>
+      </select>
+    </div>
+    <button class="btn" type="submit">Застосувати</button>
+  </form>
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:24%">Назва</th>
+        <th style="width:18%">Категорія</th>
+        <th style="width:28%">Характеристики</th>
+        <th style="width:14%">У залі</th>
+        {% if is_manager %}<th style="width:16%" class="r"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td>{{ p.product_name }}</td>
+        <td class="muted">{{ p.category_name }}</td>
+        <td class="muted">{{ p.characteristics }}</td>
+        <td>
+          {% if p.hall_pos %}
+            {% if p.hall_qty %}<span class="pill pill-ok">у залі · {{ p.hall_qty }} шт</span>
+            {% else %}<span class="pill pill-sold">розкуплено · 0 шт</span>{% endif %}
+          {% else %}<span class="pill pill-assort">не виставлено</span>{% endif %}
+        </td>
+        {% if is_manager %}
+        <td>
+          <div class="sp-acts">
+            <button type="button" class="btn" onclick='editProd({{ p|tojson }})'>Змінити</button>
+            <form method="post" action="/products-info/product/delete" onsubmit="return confirm('Видалити товар «{{ p.product_name }}»?')">
+              <input type="hidden" name="id_product" value="{{ p.id_product }}">
+              <button type="submit" class="btn btn-del">Видалити</button>
+            </form>
+          </div>
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ 5 if is_manager else 4 }}" class="cat-empty">Нічого не знайдено.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+
+  {# ===================== ВКЛАДКА: НАЯВНІСТЬ У ЗАЛІ (М-10 / К-2) ===================== #}
+  {% elif tab == 'store' %}
+
   {% if is_manager %}
   <details class="cat-panel">
     <summary>+ Виставити товар у залу</summary>
@@ -26,16 +122,14 @@
         <div class="field">
           <label>Товар (зі списку)</label>
           <select name="id_product" required>
-            {% for p in products %}<option value="{{ p.id_product }}">{{ p.product_name }}</option>{% endfor %}
+            {% for p in all_products %}<option value="{{ p.id_product }}">{{ p.product_name }}</option>{% endfor %}
           </select>
         </div>
         <div class="field"><label>UPC (до 12 символів)</label><input type="text" name="UPC" maxlength="12" required></div>
         <div class="field"><label>Ціна продажу</label><input type="number" id="add_price" name="selling_price" step="0.01" min="0" required></div>
         <div class="field"><label>Кількість одиниць</label><input type="number" name="products_number" min="0" value="0" required></div>
         <div class="field"><label>UPC акційного (необов.)</label><input type="text" name="UPC_prom" maxlength="12"></div>
-        <div class="field cat-check">
-          <label class="chk"><input type="checkbox" id="add_promo" name="promotional_product"> Акційний товар (−20%)</label>
-        </div>
+        <div class="field cat-check"><label class="chk"><input type="checkbox" id="add_promo" name="promotional_product"> Акційний товар (−20%)</label></div>
       </div>
       <div class="cat-actions">
         <span class="page-sub" style="margin:0" id="add_hint"></span>
@@ -45,118 +139,144 @@
   </details>
   {% endif %}
 
-  {# ── фільтри (GET) ── #}
   <form class="cat-filters" method="get" action="/products-info">
-    <input class="cat-search" type="text" name="q" value="{{ f.q }}" placeholder="Пошук за назвою або UPC…">
-    <select name="category">
-      <option value="">Усі категорії</option>
-      {% for c in categories %}
-        <option value="{{ c.category_number }}" {{ 'selected' if f.category==c.category_number }}>{{ c.category_name }}</option>
-      {% endfor %}
-    </select>
-    <select name="promo">
-      <option value="all" {{ 'selected' if f.promo=='all' }}> % </option>
-      <option value="promo" {{ 'selected' if f.promo=='promo' }}>Акційні</option>
-      <option value="regular" {{ 'selected' if f.promo=='regular' }}>Неакційні</option>
-    </select>
-    <select name="avail">
-      <option value="all" {{ 'selected' if f.avail=='all' }}>Будь-яка наявність</option>
-      <option value="instock" {{ 'selected' if f.avail=='instock' }}>Лише в наявності</option>
-      <option value="out" {{ 'selected' if f.avail=='out' }}>Не в наявності</option>
-    </select>
-    <select name="sort">
-      <option value="name" {{ 'selected' if f.sort=='name' }}>Сортувати: за назвою</option>
-      <option value="quantity" {{ 'selected' if f.sort=='quantity' }}>Сортувати: за кількістю</option>
-      <option value="status" {{ 'selected' if f.sort=='status' }}>Сортувати: за наявністю</option>
-    </select>
+    <input type="hidden" name="tab" value="store">
+    <div class="filter-item filter-search">
+      <label>Пошук</label>
+      <input type="text" name="q" value="{{ f.q }}" placeholder="Назва або UPC…">
+    </div>
+    <div class="filter-item">
+      <label>Категорія</label>
+      <select name="category">
+        <option value="">Усі категорії</option>
+        {% for c in categories %}<option value="{{ c.category_number }}" {{ 'selected' if f.category==c.category_number }}>{{ c.category_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Акція</label>
+      <select name="promo">
+        <option value="all" {{ 'selected' if f.promo=='all' }}>Усі</option>
+        <option value="promo" {{ 'selected' if f.promo=='promo' }}>Акційні</option>
+        <option value="regular" {{ 'selected' if f.promo=='regular' }}>Не акційні</option>
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Наявність</label>
+      <select name="avail">
+        <option value="all" {{ 'selected' if f.avail=='all' }}>Будь-яка</option>
+        <option value="instock" {{ 'selected' if f.avail=='instock' }}>В наявності</option>
+        <option value="out" {{ 'selected' if f.avail=='out' }}>Розкуплено</option>
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Сортування</label>
+      <select name="sort">
+        <option value="quantity" {{ 'selected' if f.sort=='quantity' }}>за кількістю</option>
+        <option value="name" {{ 'selected' if f.sort=='name' }}>за назвою</option>
+      </select>
+    </div>
     <button class="btn" type="submit">Застосувати</button>
   </form>
 
-  {# ── таблиця ── #}
   <table class="cat-table">
     <thead>
       <tr>
-        <th style="width:30%">Товар (асортимент)</th>
-        <th style="width:20%">Категорія</th>
-        <th style="width:14%" class="r">Ціна від</th>
-        <th style="width:24%">Наявність</th>
-        <th style="width:12%" class="r"></th>
+        <th style="width:18%">UPC</th>
+        <th style="width:24%">Товар</th>
+        <th style="width:16%">Категорія</th>
+        <th style="width:12%">Тип</th>
+        <th style="width:11%" class="r">Ціна</th>
+        <th style="width:9%" class="r">Залишок</th>
+        {% if is_manager %}<th style="width:10%" class="r"></th>{% endif %}
       </tr>
     </thead>
     <tbody>
-      {% for p in products %}
-      <tr class="main" onclick="toggle('d{{ p.id_product }}')">
-        <td>{{ p.product_name }}</td>
-        <td class="muted">{{ p.category_name }}</td>
-        <td class="r">{% if p.min_price is not none %}{{ '%.2f'|format(p.min_price) }} ₴{% else %}—{% endif %}</td>
-        <td>
-          {% if p.status=='in_stock' %}
-            <span class="pill pill-ok">✓ в наявності · {{ p.total_qty }} шт</span>
-          {% elif p.status=='sold_out' %}
-            <span class="pill pill-sold">✕ розкуплено · 0 шт</span>
-          {% else %}
-            <span class="pill pill-assort">тільки в асортименті</span>
-          {% endif %}
-          {% if p.has_promo %}<span class="pill pill-promo">є акція</span>{% endif %}
+      {% for s in store %}
+      <tr>
+        <td class="mono">{{ s.UPC }}</td>
+        <td>{{ s.product_name }}</td>
+        <td class="muted">{{ s.category_name }}</td>
+        <td>{% if s.promotional_product %}<span class="pill pill-promo">акційний</span>{% else %}<span class="pill pill-reg">звичайний</span>{% endif %}</td>
+        <td class="r">
+          {% if s.promotional_product %}<span style="color:#8a5a12;font-weight:500;">{{ '%.2f'|format(s.selling_price) }} ₴</span> <span class="muted" style="font-size:11px;">−20%</span>
+          {% else %}{{ '%.2f'|format(s.selling_price) }} ₴{% endif %}
         </td>
-        <td class="r muted">▾</td>
+        <td class="r">
+          {% if s.products_number == 0 %}<span class="pill pill-sold">0</span>{% else %}{{ s.products_number }}{% endif %}
+        </td>
+        {% if is_manager %}
+        <td>
+          <div class="sp-acts">
+            <button type="button" class="btn" onclick='editSP({{ s|tojson }})'>Змінити</button>
+            <form method="post" action="/products-info/store-product/delete" onsubmit="return confirm('Прибрати {{ s.UPC }} із зали?')">
+              <input type="hidden" name="UPC" value="{{ s.UPC }}">
+              <button type="submit" class="btn btn-del">Прибрати</button>
+            </form>
+          </div>
+        </td>
+        {% endif %}
       </tr>
+      {% else %}
+      <tr><td colspan="{{ 7 if is_manager else 6 }}" class="cat-empty">Нічого не знайдено за заданими умовами.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
-      <tr class="det" id="d{{ p.id_product }}" style="display:none">
-        <td colspan="5">
-          <div class="det-inner">
-            <div class="det-chars">Характеристики: {{ p.characteristics }}</div>
-            {% if p.store_products %}
-            <table class="sp-table">
-              <thead>
-                <tr>
-                  <th style="width:24%">UPC</th><th style="width:16%">Тип</th>
-                  <th style="width:14%" class="r">Ціна</th><th style="width:12%" class="r">Залишок</th>
-                  <th style="width:18%">Акц. UPC</th>
-                  {% if is_manager %}<th style="width:16%"></th>{% endif %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for sp in p.store_products %}
-                <tr>
-                  <td class="mono">{{ sp.UPC }}</td>
-                  <td>
-                    {% if sp.promotional_product %}<span class="pill pill-promo">акційний</span>
-                    {% else %}<span class="pill pill-reg">звичайний</span>{% endif %}
-                  </td>
-                  <td class="r">{{ '%.2f'|format(sp.selling_price) }} ₴</td>
-                  <td class="r" {{ 'style=color:var(--danger)' if sp.products_number==0 }}>{{ sp.products_number }}</td>
-                  <td class="mono">{{ sp.UPC_prom or '—' }}</td>
-                  {% if is_manager %}
-                  <td>
-                    <div class="sp-acts">
-                      <button type="button" class="btn" onclick='editSP({{ sp|tojson }})'>Змінити</button>
-                      <form method="post" action="/products-info/store-product/delete"
-                            onsubmit="return confirm('Прибрати {{ sp.UPC }} із зали?')">
-                        <input type="hidden" name="UPC" value="{{ sp.UPC }}">
-                        <button type="submit" class="btn btn-del">Прибрати</button>
-                      </form>
-                    </div>
-                  </td>
-                  {% endif %}
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% else %}
-              <div class="muted">Немає позицій у залі — товар занесено в довідник, але не виставлено (немає UPC і ціни).</div>
-            {% endif %}
+  {# ========================= ВКЛАДКА: КАТЕГОРІЇ (М-8) ========================= #}
+  {% elif tab == 'categories' and is_manager %}
+  <details class="cat-panel">
+    <summary>+ Додати категорію</summary>
+    <form method="post" action="/products-info/category/add">
+      <div class="cat-grid">
+        <div class="field"><label>Назва категорії</label><input type="text" name="category_name" maxlength="50" required></div>
+      </div>
+      <div class="cat-actions"><button class="btn primary" type="submit">Додати</button></div>
+    </form>
+  </details>
+
+  <form class="cat-filters" method="get" action="/products-info">
+    <input type="hidden" name="tab" value="categories">
+    <div class="filter-item filter-search">
+      <label>Пошук</label>
+      <input type="text" name="q" value="{{ f.q }}" placeholder="Назва категорії…">
+    </div>
+    <div class="filter-item">
+      <label>Сортування</label>
+      <select name="sort">
+        <option value="name" {{ 'selected' if f.sort=='name' }}>за назвою</option>
+        <option value="number" {{ 'selected' if f.sort=='number' }}>за номером</option>
+      </select>
+    </div>
+    <button class="btn" type="submit">Застосувати</button>
+  </form>
+
+  <table class="cat-table">
+    <thead><tr><th style="width:14%">№</th><th>Назва категорії</th><th style="width:20%" class="r"></th></tr></thead>
+    <tbody>
+      {% for c in cat_rows %}
+      <tr>
+        <td>{{ c.category_number }}</td>
+        <td>{{ c.category_name }}</td>
+        <td>
+          <div class="sp-acts">
+            <button type="button" class="btn" onclick='editCat({{ c|tojson }})'>Змінити</button>
+            <form method="post" action="/products-info/category/delete" onsubmit="return confirm('Видалити категорію «{{ c.category_name }}»?')">
+              <input type="hidden" name="category_number" value="{{ c.category_number }}">
+              <button type="submit" class="btn btn-del">Видалити</button>
+            </form>
           </div>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="cat-empty">Нічого не знайдено за заданими умовами.</td></tr>
+      <tr><td colspan="3" class="cat-empty">Нічого не знайдено.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
+
 </div>
 
-{# ── менеджер: модалка редагування ── #}
+{# ── менеджер: модалка редагування позиції в залі ── #}
 {% if is_manager %}
 <div class="modal-bg" id="editBg">
   <div class="modal">
@@ -176,31 +296,84 @@
     </form>
   </div>
 </div>
+
+<div class="modal-bg" id="editProdBg">
+  <div class="modal">
+    <h3>Редагувати товар</h3>
+    <form method="post" action="/products-info/product/update">
+      <input type="hidden" name="id_product" id="ep_id">
+      <div class="cat-grid">
+        <div class="field"><label>Назва</label><input type="text" name="product_name" id="ep_name" maxlength="50" required></div>
+        <div class="field">
+          <label>Категорія</label>
+          <select name="category_number" id="ep_cat" required>
+            {% for c in categories %}<option value="{{ c.category_number }}">{{ c.category_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field"><label>Характеристики</label><input type="text" name="characteristics" id="ep_char" maxlength="100" required></div>
+      </div>
+      <div class="cat-actions">
+        <button type="button" class="btn" onclick="closeProd()">Скасувати</button>
+        <button type="submit" class="btn primary">Зберегти</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-bg" id="editCatBg">
+  <div class="modal">
+    <h3>Редагувати категорію</h3>
+    <form method="post" action="/products-info/category/update">
+      <input type="hidden" name="category_number" id="ec_id">
+      <div class="cat-grid">
+        <div class="field"><label>Назва категорії</label><input type="text" name="category_name" id="ec_name" maxlength="50" required></div>
+      </div>
+      <div class="cat-actions">
+        <button type="button" class="btn" onclick="closeCat()">Скасувати</button>
+        <button type="submit" class="btn primary">Зберегти</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endif %}
 
 <script>
-  function toggle(id){
-    var el=document.getElementById(id);
-    el.style.display = el.style.display==='none' ? 'table-row' : 'none';
-  }
   {% if is_manager %}
   var ap=document.getElementById('add_price'), apr=document.getElementById('add_promo'), ah=document.getElementById('add_hint');
-  function hint(){
-    if(apr.checked && ap.value){ ah.textContent='Акційна ціна ≈ '+(ap.value*0.8).toFixed(2)+' ₴ (×0.8)'; }
-    else { ah.textContent=''; }
+  if(ap&&apr){
+    function hint(){ ah.textContent = (apr.checked && ap.value) ? 'Акційна ціна ≈ '+(ap.value*0.8).toFixed(2)+' ₴ (×0.8)' : ''; }
+    ap.addEventListener('input',hint); apr.addEventListener('change',hint);
   }
-  ap.addEventListener('input',hint); apr.addEventListener('change',hint);
-  function editSP(sp){
-    document.getElementById('e_upc').value=sp.UPC;
-    document.getElementById('e_upc_v').value=sp.UPC;
-    document.getElementById('e_prom').value=sp.UPC_prom||'';
-    document.getElementById('e_price').value=sp.selling_price;
-    document.getElementById('e_qty').value=sp.products_number;
-    document.getElementById('e_promo').checked=!!sp.promotional_product;
+  function editSP(s){
+    document.getElementById('e_upc').value=s.UPC;
+    document.getElementById('e_upc_v').value=s.UPC;
+    document.getElementById('e_prom').value=s.UPC_prom||'';
+    document.getElementById('e_price').value=s.selling_price;
+    document.getElementById('e_qty').value=s.products_number;
+    document.getElementById('e_promo').checked=!!s.promotional_product;
     document.getElementById('editBg').classList.add('open');
   }
   function closeEdit(){ document.getElementById('editBg').classList.remove('open'); }
-  document.getElementById('editBg').addEventListener('click',function(e){ if(e.target===this) closeEdit(); });
+
+  function editProd(p){
+    document.getElementById('ep_id').value=p.id_product;
+    document.getElementById('ep_name').value=p.product_name;
+    document.getElementById('ep_char').value=p.characteristics;
+    document.getElementById('ep_cat').value=p.category_number;
+    document.getElementById('editProdBg').classList.add('open');
+  }
+  function closeProd(){ document.getElementById('editProdBg').classList.remove('open'); }
+
+  function editCat(c){
+    document.getElementById('ec_id').value=c.category_number;
+    document.getElementById('ec_name').value=c.category_name;
+    document.getElementById('editCatBg').classList.add('open');
+  }
+  function closeCat(){ document.getElementById('editCatBg').classList.remove('open'); }
+
+  document.querySelectorAll('.modal-bg').forEach(function(bg){
+    bg.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
+  });
   {% endif %}
 </script>
 {% endblock %}

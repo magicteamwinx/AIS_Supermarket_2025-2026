@@ -1,5 +1,5 @@
 :root{
-    --ink:#1c2421;
+  --ink:#1c2421;
 --muted:#5d6b64;
 --line:#dde3df;
 --bg:#f4f6f4;
@@ -10,7 +10,7 @@
 --danger:#b3372f;
 --radius:10px;
 --radius-lg:14px;
-  }
+}
 *{box-sizing:border-box;}
 body{
 margin:0;
@@ -19,14 +19,14 @@ background:var(--bg);
 color:var(--ink);
 font-size:15px;
 line-height:1.5;
-  }
+}
 a{color:inherit;text-decoration:none;}
 .topbar{
 display:flex;align-items:center;gap:16px;
 background:var(--surface);
 border-bottom:1px solid var(--line);
 padding:0 20px;height:58px;
-  }
+}
 .brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:17px;color:var(--accent-dark);}
 .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);}
 .nav{display:flex;gap:4px;flex:1;margin-left:14px;flex-wrap:wrap;}
@@ -44,7 +44,7 @@ background:var(--surface);border:1px solid var(--line);
 border-radius:var(--radius-lg);padding:20px;
 display:flex;flex-direction:column;gap:10px;
 transition:border-color .15s, transform .05s;
-  }
+}
 .tile:hover{border-color:var(--accent);transform:translateY(-1px);}
 .tile .ico{font-size:26px;color:var(--accent);}
 .tile .label{font-weight:600;font-size:15px;}
@@ -122,3 +122,17 @@ transition:border-color .15s, transform .05s;
 .modal-bg.open{display:flex;}
 .modal{background:var(--surface);border-radius:var(--radius-lg);padding:18px 20px;width:min(460px,92vw);}
 .modal h3{margin:0 0 12px;font-size:16px;color:var(--accent-dark);}
+
+/* вкладки розділу (менеджер) */
+.cat-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.cat-tab{padding:8px 16px;font-size:14px;color:var(--muted);border:1px solid var(--line);
+border-radius:var(--radius);background:var(--surface);
+transition:border-color .15s, background .15s, color .15s;}
+.cat-tab:hover{border-color:var(--accent);color:var(--accent-dark);background:var(--accent-soft);}
+.cat-tab.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);font-weight:600;}
+
+/* фільтри з підписами */
+.cat-filters{align-items:flex-end;}
+.filter-item{display:flex;flex-direction:column;gap:4px;}
+.filter-item > label{font-size:12px;color:var(--muted);}
+.filter-search{flex:1;min-width:200px;}
