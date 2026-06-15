@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Мій профіль — ZLAGODA{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 0 auto;">
+  <h1 class="page-title">Особистий кабінет</h1>
+  
+  <div class="tile" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg);">
+    
+    {% if profile_data['empl_role'] | lower == 'менеджер' %}
+    <div style="background: var(--accent); padding: 40px 30px; color: white; display: flex; align-items: center; gap: 20px;">
+    {% else %}
+    <div style="background: #10b981; padding: 40px 30px; color: white; display: flex; align-items: center; gap: 20px;">
+    {% endif %}
+      <div style="font-size: 60px; background: rgba(255,255,255,0.2); width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; border-radius: 50%;">
+        {% if profile_data.empl_role == 'Менеджер' %}👔{% else %}🛒{% endif %}
+      </div>
+      <div>
+        <h2 style="margin: 0; font-size: 28px;">{{ profile_data.empl_surname }} {{ profile_data.empl_name }} {{ profile_data.empl_patronymic }}</h2>
+        <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">{{ profile_data.empl_role }} (ID: {{ profile_data.id_employee }})</p>
+      </div>
+    </div>
+
+    <div style="padding: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+      
+      <div>
+        <h3 style="color: var(--muted); font-size: 13px; text-transform: uppercase; margin-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px;">Контактна інформація</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="font-size: 12px; color: var(--muted);">Телефон</div>
+          <div style="font-weight: 500; font-size: 16px;">{{ profile_data.phone_number }}</div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="font-size: 12px; color: var(--muted);">Адреса проживання</div>
+          <div style="font-weight: 500; font-size: 16px;">
+            м. {{ profile_data.city }}, вул. {{ profile_data.street }}<br>
+            <span style="font-size: 14px; color: var(--muted);">Індекс: {{ profile_data.zip_code }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="color: var(--muted); font-size: 13px; text-transform: uppercase; margin-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px;">Дані системи</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="font-size: 12px; color: var(--muted);">Дата народження</div>
+          <div style="font-weight: 500; font-size: 16px;">{{ profile_data.date_of_birth }}</div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <div style="font-size: 12px; color: var(--muted);">Працює в компанії з</div>
+          <div style="font-weight: 500; font-size: 16px;">{{ profile_data.date_of_start }}</div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <div style="font-size: 12px; color: var(--muted);">Оклад (Зарплата)</div>
+          <div style="font-weight: 600; font-size: 18px; color: var(--text);">{{ profile_data.salary }} ₴</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
