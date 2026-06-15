@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jose import jwt, JWTError
 import sqlite3
+from database import get_db
 
 from database import get_db
 from security import verify_password, create_access_token, SECRET_KEY, ALGORITHM
@@ -85,14 +86,73 @@ def login_page(request: Request):
 
 #ендпоінт дашборду (головна сторінка)
 @router.get("/dashboard", response_class=HTMLResponse)
-def dashboard_page(request: Request, current_user: dict = Depends(get_user_from_cookie)):
+def dashboard_page(
+    request: Request, 
+    current_user: dict = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db)):
     if not current_user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
+    cursor = db.cursor()
+    context={"user": current_user}
+
+    #дані менеджера
+    if current_user["role"] == "Менеджер":
         
+        # 1. KPI за сьогодні (Загальна каса та кількість чеків)
+        # DATE('now', 'localtime') бере сьогоднішню дату в SQLite
+        cursor.execute("""
+            SELECT 
+                COUNT(check_number) as today_checks, 
+                SUM(sum_total) as today_revenue
+            FROM Check_AIS 
+            WHERE DATE(print_date) = DATE('now', 'localtime')
+        """)
+        kpi = cursor.fetchone()
+        
+        # Якщо чеків ще немає, SUM поверне None, тому робимо перевірку
+        context["today_checks"] = kpi["today_checks"] if kpi["today_checks"] else 0
+        context["today_revenue"] = round(kpi["today_revenue"], 2) if kpi["today_revenue"] else 0.0
+        
+        #перегляд товарів, що закінчуються (менше 10 штук на полиці)
+        cursor.execute("""
+            SELECT p.product_name, sp.UPC, sp.products_number 
+            FROM Store_Product sp
+            JOIN Product p ON sp.id_product = p.id_product
+            WHERE sp.products_number < 10
+            ORDER BY sp.products_number ASC
+            LIMIT 5
+        """)
+
+        context["low_stock_items"] = cursor.fetchall()
+        
+        #беремо станні 5 транзакцій
+        cursor.execute("""
+            SELECT ch.check_number, ch.print_date, e.empl_surname, ch.sum_total
+            FROM Check_AIS ch
+            JOIN Employee e ON ch.id_employee = e.id_employee
+            ORDER BY ch.print_date DESC
+            LIMIT 5
+        """)
+        context["recent_checks"] = cursor.fetchall()
+
+    #дані касира
+    elif current_user["role"] == "Касир":
+        # Рахуємо, скільки чеків пробив конкретно цей касир за свою поточну зміну
+        cursor.execute("""
+            SELECT COUNT(check_number) as my_checks, SUM(sum_total) as my_revenue
+            FROM Check_AIS
+            WHERE id_employee = ? AND DATE(print_date) = DATE('now', 'localtime')
+        """, (current_user["id"],))
+        
+        my_kpi = cursor.fetchone()
+        context["my_checks"] = my_kpi["my_checks"] if my_kpi["my_checks"] else 0
+        context["my_revenue"] = round(my_kpi["my_revenue"], 2) if my_kpi["my_revenue"] else 0.0
+
     return templates.TemplateResponse(
         request=request, 
         name="dashboard.html",
-        context={"user": current_user}
+        context=context
     )
 
 #ендпоінт на вихід з акаунта
