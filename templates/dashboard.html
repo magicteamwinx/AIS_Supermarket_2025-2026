@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Головна — ZLAGODA{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Вітаємо, {{ user.name }}</h1>
+  <p class="page-sub">Робоча панель системи ZLAGODA</p>
+
+  <div class="tiles">
+    
+    {% if user.role == "Менеджер" %}
+      <a href="/employees" class="tile">
+        <div class="ico">👥</div>
+        <div class="label">Працівники</div>
+      </a>
+      <a href="/products" class="tile">
+        <div class="ico">📦</div>
+        <div class="label">Склад товарів</div>
+      </a>
+      <a href="/reports" class="tile">
+        <div class="ico">📊</div>
+        <div class="label">Звіти та аналітика</div>
+      </a>
+    {% endif %}
+
+    {% if user.role == "Касир" %}
+      <a href="/pos" class="tile" style="border-color: var(--accent);">
+        <div class="ico">🛒</div>
+        <div class="label">Відкрити касу</div>
+      </a>
+      <a href="/my-checks" class="tile">
+        <div class="ico">🧾</div>
+        <div class="label">Мої чеки</div>
+      </a>
+    {% endif %}
+
+    <a href="/store-products" class="tile">
+      <div class="ico">🏷️</div>
+      <div class="label">Товари в залі</div>
+    </a>
+    <a href="/customers" class="tile">
+      <div class="ico">💳</div>
+      <div class="label">Клієнтські картки</div>
+    </a>
+
+  </div>
+</div>
+{% endblock %}

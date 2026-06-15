@@ -11,24 +11,30 @@
   {% if user %}
   <header class="topbar">
     <div class="brand"><span class="dot"></span> ZLAGODA</div>
+
     <nav class="nav">
+      <a href="/dashboard">Головна</a>
+
       {% if user.role == "Менеджер" %}
-        <a href="/manager">Головна</a>
         <a href="/employees">Працівники</a>
-        <a href="/customers">Клієнти</a>
         <a href="/categories">Категорії</a>
-        <a href="/products">Товари</a>
-        <a href="/store-products">Товари в магазині</a>
-        <a href="/checks">Чеки</a>
+        <a href="/products">Товари (Склад)</a>
         <a href="/reports">Звіти</a>
-      {% else %}
-        <a href="/cashier">Головна</a>
-        <a href="/pos">Нова покупка</a>
-        <a href="/customers">Клієнти</a>
-        <a href="/store-products">Товари в магазині</a>
-        <a href="/my-checks">Мої чеки</a>
+      {% endif %}
+
+      {% if user.role == "Касир" %}
+        <a href="/pos">Новий чек (Каса)</a>
+        <a href="/my-checks">Мої продажі</a>
+      {% endif %}
+
+      <a href="/store-products">Товари в залі</a>
+      <a href="/customers">Клієнти</a>
+      
+      {% if user.role == "Менеджер" %}
+        <a href="/checks">Всі чеки</a>
       {% endif %}
     </nav>
+
     <div class="userbox">
       {{ user.name }} · {{ user.role }}
       <a href="/logout" class="logout">Вихід</a>

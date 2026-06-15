@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
+from ui_routes import router as ui_router
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from security import SECRET_KEY, ALGORITHM
@@ -89,12 +91,13 @@ class EmployeeUpdate(BaseModel):
 
 app = FastAPI(title="ZLAGODA Mini-Supermarket")
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(ui_router)
+
 class CategoryCreate(BaseModel):
     category_name: str
 
-@app.get("/")
-def read_root():
-    return {"message": "працює..."}
 #авторизація
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
