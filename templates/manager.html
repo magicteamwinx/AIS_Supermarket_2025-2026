@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Панель менеджера — ZLAGODA{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Панель менеджера</h1>
+  <p class="page-sub">Усі розділи системи</p>
+
+  <div class="tiles">
+    <a class="tile" href="/employees"><span class="ico">●</span><span class="label">Працівники</span></a>
+    <a class="tile" href="/customers"><span class="ico">●</span><span class="label">Клієнти</span></a>
+    <a class="tile" href="/categories"><span class="ico">●</span><span class="label">Категорії</span></a>
+    <a class="tile" href="/products"><span class="ico">●</span><span class="label">Товари</span></a>
+    <a class="tile" href="/store-products"><span class="ico">●</span><span class="label">Товари в магазині</span></a>
+    <a class="tile" href="/checks"><span class="ico">●</span><span class="label">Чеки</span></a>
+    <a class="tile" href="/reports"><span class="ico">●</span><span class="label">Звіти</span></a>
+  </div>
+</div>
+{% endblock %}

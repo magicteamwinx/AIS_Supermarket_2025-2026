@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Вхід — ZLAGODA{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <form class="login-card" method="post" action="/login">
+    <div style="font-size:34px;color:var(--accent);">●</div>
+    <h2>ZLAGODA</h2>
+    <p class="sub">Вхід у систему</p>
+
+    {% if error %}
+      <p style="color:var(--danger);font-size:13px;margin:-8px 0 14px;">{{ error }}</p>
+    {% endif %}
+
+    <div class="field">
+      <label for="username">ID працівника</label>
+      <input id="username" name="username" value="EMP001" required>
+    </div>
+    <div class="field">
+      <label for="password">Пароль</label>
+      <input id="password" name="password" type="password" required>
+    </div>
+
+    <button class="btn primary" type="submit" style="width:100%;">Увійти</button>
+  </form>
+</div>
+{% endblock %}

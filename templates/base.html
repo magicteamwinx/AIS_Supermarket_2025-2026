@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ZLAGODA{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  {% if user %}
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span> ZLAGODA</div>
+    <nav class="nav">
+      {% if user.role == "Менеджер" %}
+        <a href="/manager">Головна</a>
+        <a href="/employees">Працівники</a>
+        <a href="/customers">Клієнти</a>
+        <a href="/categories">Категорії</a>
+        <a href="/products">Товари</a>
+        <a href="/store-products">Товари в магазині</a>
+        <a href="/checks">Чеки</a>
+        <a href="/reports">Звіти</a>
+      {% else %}
+        <a href="/cashier">Головна</a>
+        <a href="/pos">Нова покупка</a>
+        <a href="/customers">Клієнти</a>
+        <a href="/store-products">Товари в магазині</a>
+        <a href="/my-checks">Мої чеки</a>
+      {% endif %}
+    </nav>
+    <div class="userbox">
+      {{ user.name }} · {{ user.role }}
+      <a href="/logout" class="logout">Вихід</a>
+    </div>
+  </header>
+  {% endif %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>
