@@ -110,7 +110,7 @@ def catalog_page(
     # ── вкладка "Наявність у залі" (М-10 / К-2): усі Store_Product ──
     elif tab == "store":
         if sort not in ("quantity", "name"):
-            sort = "quantity"   # М-10: за замовчуванням сортуємо за кількістю
+            sort = "name"   # М-10: за замовчуванням сортуємо за назвою
         query = """
             SELECT sp.UPC, sp.UPC_prom, sp.id_product, sp.selling_price,
                    sp.products_number, sp.promotional_product,
