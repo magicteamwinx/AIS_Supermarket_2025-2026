@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from security import SECRET_KEY, ALGORITHM
@@ -7,7 +7,9 @@ import sqlite3
 from database import get_db
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from security import verify_password, create_access_token, get_password_hash
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login", auto_error=False)
+
 class ProductCreate(BaseModel):
     category_number: int
     product_name: str
@@ -89,8 +91,6 @@ class EmployeeUpdate(BaseModel):
 
 app = FastAPI(title="ZLAGODA Mini-Supermarket")
 
-
-# --- Підключення UI: статика (CSS) та сторінки інтерфейсу ---
 from fastapi.staticfiles import StaticFiles
 from ui_routes import router as ui_router
 from products_info_routes import router as products_info_router
@@ -105,6 +105,7 @@ class CategoryCreate(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "працює..."}
+
 #авторизація
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
@@ -125,32 +126,70 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connecti
     #юзер буде мати токен що згорає за годину
     return {"access_token": access_token, "token_type": "bearer"}
 
+#api-ендпоінт авторизації
+@app.post("/api/login")
+def api_login(
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: sqlite3.Connection = Depends(get_db)
+):
+    cursor = db.cursor()
+    # form_data.username — це стандартна назва поля у Swagger, 
+    # туди потраплятиме твій id_employee (наприклад, EMP001)
+    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (form_data.username,))
+    user = cursor.fetchone()
+    
+    # Перевіряємо користувача та його пароль
+    if not user or not verify_password(form_data.password, user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Неправильний логін або пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    # Генеруємо токен доступу
+    access_token = create_access_token(
+        data={"sub": user["id_employee"], "role": user["empl_role"]}
+    )
+    
+    # Swagger очікує саме таку відповідь із двома полями
+    return {"access_token": access_token, "token_type": "bearer"}
+
 #права доступу
 
 #чи дійсний токен
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="токен не вдалось перевірити",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        #дешифрування токену
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        employee_id: str = payload.get("sub")
-        role: str = payload.get("role")
-        if employee_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+def get_current_user(
+    request: Request, 
+    token: str = Depends(oauth2_scheme), 
+    db: sqlite3.Connection = Depends(get_db)
+):
+    # 1. Якщо токена немає в заголовку (не Swagger), шукаємо його в куках (Веб-інтерфейс)
+    if not token:
+        token = request.cookies.get("session_token")
         
-    return {"id_employee": employee_id, "role": role}
+    # 2. Якщо токена немає НІДЕ — викидаємо помилку
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Не авторизовано",
+        )
+        
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        role: str = payload.get("role")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недійсний токен")
+            
+        return {"id": user_id, "role": role}
+        
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Токен протерміновано або пошкоджено")
 
 #права доступу менеджера
 def get_current_manager(current_user: dict = Depends(get_current_user)):
     if current_user["role"] !="Менеджер":
         raise HTTPException(
-            status_code=403, 
+            status_code=status.HTTP_403_FORBIDDEN, 
             detail="доступ має лише менеджер"
         )
     return current_user
@@ -158,7 +197,7 @@ def get_current_manager(current_user: dict = Depends(get_current_user)):
 def get_current_cashier(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "Касир":
         raise HTTPException(
-            status_code=403, 
+            status_code=status.HTTP_403_FORBIDDEN, 
             detail="доступ має лише касир"
         )
     return current_user
