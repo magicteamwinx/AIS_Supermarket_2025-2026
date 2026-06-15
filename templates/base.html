@@ -15,24 +15,19 @@
     <nav class="nav">
       <a href="/dashboard">Головна</a>
 
+      <a href="/profile">Мій профіль</a>  
+      <a href="/products-info">Асортимент та Склад</a>
+
       {% if user.role == "Менеджер" %}
         <a href="/employees">Працівники</a>
-        <a href="/categories">Категорії</a>
-        <a href="/products">Товари (Склад)</a>
-        <a href="/reports">Звіти</a>
+        <a href="/reports">Звіти та Аналітика</a>
       {% endif %}
 
       {% if user.role == "Касир" %}
-        <a href="/pos">Новий чек (Каса)</a>
-        <a href="/my-checks">Мої продажі</a>
+        <a href="/register">Каса</a>
       {% endif %}
 
-      <a href="/store-products">Товари в залі</a>
-      <a href="/customers">Клієнти</a>
-      
-      {% if user.role == "Менеджер" %}
-        <a href="/checks">Всі чеки</a>
-      {% endif %}
+      <a href="/customers-cards">Клієнти</a>
     </nav>
 
     <div class="userbox">
