@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Клієнти — ZLAGODA{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1 class="page-title" style="margin: 0;">Картки лояльності</h1>
+    <button class="btn primary" onclick="openModal()">+ Нова картка</button>
+  </div>
+
+  <div class="tile" style="margin-bottom: 20px;">
+    <form action="/customers" method="get" style="display: flex; gap: 15px; margin: 0; align-items: flex-end;">
+      <div style="flex: 1;">
+        <label style="font-size: 12px; color: var(--muted);">Прізвище клієнта</label>
+        <input type="text" name="surname" value="{{ search_surname }}" placeholder="Наприклад: Коваленко" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+      </div>
+      <div style="width: 150px;">
+        <label style="font-size: 12px; color: var(--muted);">Знижка (%)</label>
+        <input type="number" name="percent" value="{{ search_percent }}" placeholder="Всі" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+      </div>
+      <button type="submit" class="btn primary">Знайти</button>
+      <a href="/customers" class="btn" style="text-decoration: none; border: 1px solid var(--line);">Скинути</a>
+    </form>
+  </div>
+
+  <div class="tile" style="padding: 0; overflow-x: auto;">
+    <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead style="background: var(--bg); border-bottom: 1px solid var(--line);">
+        <tr>
+          <th style="padding: 12px 15px;">№ Картки</th>
+          <th style="padding: 12px 15px;">ПІБ Клієнта</th>
+          <th style="padding: 12px 15px;">Телефон</th>
+          <th style="padding: 12px 15px;">Місто</th>
+          <th style="padding: 12px 15px;">Знижка</th>
+          <th style="padding: 12px 15px; text-align: right;">Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for card in cards %}
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 12px 15px; font-family: monospace;">{{ card.card_number }}</td>
+          <td style="padding: 12px 15px; font-weight: 500;">{{ card.cust_surname }} {{ card.cust_name }} {{ card.cust_patronymic or '' }}</td>
+          <td style="padding: 12px 15px;">{{ card.phone_number }}</td>
+          <td style="padding: 12px 15px;">{{ card.city or '-' }}</td>
+          <td style="padding: 12px 15px; color: var(--accent); font-weight: bold;">{{ card.percent }}%</td>
+          <td style="padding: 12px 15px; text-align: right;">
+            <button class="btn" style="padding: 4px 8px; font-size: 12px; cursor: pointer;" 
+                    onclick='editCard({{ card | tojson }})'>Змінити</button>
+            
+            {% if user.role == "Менеджер" %}
+              <button class="btn" style="padding: 4px 8px; font-size: 12px; color: red; border-color: red; cursor: pointer;" 
+                      onclick="deleteCard('{{ card.card_number }}')">Видалити</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="padding: 30px; text-align: center; color: var(--muted);">За вашим запитом клієнтів не знайдено.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="cardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+  <div class="tile" style="width: 500px; max-width: 90%; background: var(--surface);">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 15px; margin-bottom: 20px;">
+      <h2 id="modalTitle" style="margin: 0; font-size: 20px;">Нова картка</h2>
+      <button onclick="closeModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">✖</button>
+    </div>
+
+    <form id="cardForm" onsubmit="saveCard(event)">
+      
+      <input type="hidden" id="formMode" value="create">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Номер картки *</label>
+          <input type="text" id="m_card_number" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Знижка (%) *</label>
+          <input type="number" id="m_percent" required min="0" max="100" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Прізвище *</label>
+          <input type="text" id="m_surname" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Ім'я *</label>
+          <input type="text" id="m_name" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">По батькові</label>
+          <input type="text" id="m_patronymic" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="font-size: 12px; color: var(--muted);">Телефон *</label>
+        <input type="text" id="m_phone" required placeholder="+380..." style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 15px; margin-bottom: 25px;">
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Місто</label>
+          <input type="text" id="m_city" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Вулиця</label>
+          <input type="text" id="m_street" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Індекс</label>
+          <input type="text" id="m_zip" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn" onclick="closeModal()" style="border: 1px solid var(--line);">Скасувати</button>
+        <button type="submit" class="btn primary">Зберегти картку</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+  const modal = document.getElementById('cardModal');
+  const form = document.getElementById('cardForm');
+
+  // Відкриття форми (для створення НОВОЇ картки)
+  function openModal() {
+    form.reset(); // Очищаємо всі поля
+    document.getElementById('formMode').value = 'create';
+    document.getElementById('modalTitle').innerText = 'Нова картка лояльності';
+    document.getElementById('m_card_number').readOnly = false; // Дозволяємо вводити номер
+    modal.style.display = 'flex';
+  }
+
+  // Відкриття форми (для РЕДАГУВАННЯ існуючої)
+  function editCard(card) {
+    document.getElementById('formMode').value = 'update';
+    document.getElementById('modalTitle').innerText = `Редагування картки ${card.card_number}`;
+    
+    // Заповнюємо поля даними клієнта
+    document.getElementById('m_card_number').value = card.card_number;
+    document.getElementById('m_card_number').readOnly = true; // Забороняємо міняти первинний ключ!
+    document.getElementById('m_surname').value = card.cust_surname;
+    document.getElementById('m_name').value = card.cust_name;
+    document.getElementById('m_patronymic').value = card.cust_patronymic || '';
+    document.getElementById('m_phone').value = card.phone_number;
+    document.getElementById('m_percent').value = card.percent;
+    document.getElementById('m_city').value = card.city || '';
+    document.getElementById('m_street').value = card.street || '';
+    document.getElementById('m_zip').value = card.zip_code || '';
+    
+    modal.style.display = 'flex';
+  }
+
+  // Закриття форми
+  function closeModal() {
+    modal.style.display = 'none';
+  }
+
+  // ЗБЕРЕЖЕННЯ ДАНИХ (Викликає твій бекенд!)
+  async function saveCard(event) {
+    event.preventDefault(); // Зупиняємо стандартне перезавантаження
+    
+    const mode = document.getElementById('formMode').value;
+    const cardNumber = document.getElementById('m_card_number').value;
+    
+    // Збираємо дані в об'єкт, який чекає твій Pydantic (CustomerCardCreate / CustomerCardUpdate)
+    const payload = {
+      card_number: cardNumber,
+      cust_surname: document.getElementById('m_surname').value,
+      cust_name: document.getElementById('m_name').value,
+      cust_patronymic: document.getElementById('m_patronymic').value,
+      phone_number: document.getElementById('m_phone').value,
+      percent: parseInt(document.getElementById('m_percent').value),
+      city: document.getElementById('m_city').value,
+      street: document.getElementById('m_street').value,
+      zip_code: document.getElementById('m_zip').value
+    };
+
+    // Визначаємо метод і URL залежно від того, чи ми створюємо, чи оновлюємо
+    const url = mode === 'create' ? '/customer-cards' : `/customer-cards/${cardNumber}`;
+    const method = mode === 'create' ? 'POST' : 'PUT';
+
+    try {
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json' // Кажемо FastAPI, що це JSON
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        window.location.reload(); // Успіх! Оновлюємо сторінку, щоб побачити нові дані
+      } else {
+        const error = await response.json();
+        alert('Помилка: ' + error.detail);
+      }
+    } catch (err) {
+      alert("Помилка з'єднання з сервером.");
+    }
+  }
+
+  // Видалення (Вже було)
+  async function deleteCard(cardNumber) {
+    if (!confirm(`Ви впевнені, що хочете видалити картку ${cardNumber}?`)) return;
+    try {
+      const response = await fetch(`/customer-cards/${cardNumber}`, { method: 'DELETE' });
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert('Помилка: ' + error.detail);
+      }
+    } catch (err) {
+      alert('Помилка з\'єднання з сервером');
+    }
+  }
+</script>
+{% endblock %}
