@@ -15,7 +15,7 @@
     <nav class="nav">
       <a href="/dashboard">Головна</a>
 
-      <a href="/profile">Мій профіль</a>  
+      <a href="/profile">Профіль</a>  
 
       {% if user.role == "Менеджер" %}
         <a href="/employees">Працівники</a>
@@ -24,12 +24,11 @@
       {% endif %}
 
       {% if user.role == "Касир" %}
-        <a href="/employees">Працівники</a>
         <a href="/products-info">Каталог</a>
         <a href="/reports">Звіти та Аналітика</a>
       {% endif %}
 
-      <a href="/customers-cards">Клієнти</a>
+      <a href="/customers">Клієнти</a>
     </nav>
 
     <div class="userbox">
