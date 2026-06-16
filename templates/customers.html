@@ -2,6 +2,12 @@
 {% block title %}Клієнти — ZLAGODA{% endblock %}
 
 {% block content %}
+<style>
+  /* Клас для червоної кнопки Скинути */
+  .btn-danger { background-color: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background-color: #c82333; color: white; border-color: #bd2130; }
+</style>
+
 <div class="container">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h1 class="page-title" style="margin: 0;">Картки лояльності</h1>
@@ -27,7 +33,7 @@
         </select>
       </div>
       <button type="submit" class="btn primary">Застосувати</button>
-      <a href="/customers" class="btn" style="text-decoration: none; border: 1px solid var(--line);">Скинути</a>
+      <a href="/customers" class="btn btn-danger" style="text-decoration: none;">Скинути</a>
     </form>
   </div>
 
