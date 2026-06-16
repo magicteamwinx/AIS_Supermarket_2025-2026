@@ -213,6 +213,7 @@ def ui_profile(
         }
     )
 
+#ендпоінт сторінки клієнтів
 @router.get("/customers", response_class=HTMLResponse)
 def ui_customers(
     request: Request, 
@@ -254,5 +255,62 @@ def ui_customers(
             "cards": cards, 
             "search_surname": surname or "", 
             "search_percent": percent or ""
+        }
+    )
+
+#ендпоінт сторінки працівників
+@router.get("/employees", response_class=HTMLResponse)
+def ui_employees(
+    request: Request, 
+    role: str | None = None,
+    surname: str | None = None,
+    sort_by: str = "surname",
+    current_user: dict = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db)
+):
+    # Тільки менеджер має сюди доступ
+    if not current_user or current_user["role"] != "Менеджер":
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+        
+    cursor = db.cursor()
+    query = """
+        SELECT id_employee, empl_surname, empl_name, empl_patronymic, 
+               empl_role, salary, date_of_birth, date_of_start, 
+               phone_number, city, street, zip_code 
+        FROM Employee
+    """
+    conds = []
+    params = []
+    
+    if role:
+        conds.append("empl_role = ?")
+        params.append(role)
+    if surname:
+        conds.append("empl_surname LIKE ?")
+        params.append(f"{surname}%")
+        
+    if conds:
+        query += " WHERE " + " AND ".join(conds)
+
+    if sort_by == "id":
+        query += " ORDER BY id_employee"
+    elif sort_by == "role":
+        query += " ORDER BY empl_role, empl_surname"
+    else:
+        query += " ORDER BY empl_surname"
+        
+    cursor.execute(query, params)
+    
+    # Перетворюємо Row на словники для Jinja2
+    employees = [dict(row) for row in cursor.fetchall()]
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="employees.html", 
+        context={
+            "user": current_user, 
+            "employees": employees,
+            "search_role": role or "",
+            "search_surname": surname or ""
         }
     )

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Працівники — ZLAGODA{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1 class="page-title" style="margin: 0;">Персонал магазину</h1>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn primary" onclick="openModal()">+ Новий працівник</button>
+    </div>
+  </div>
+
+  <div class="tile no-print" style="margin-bottom: 20px;">
+    <form action="/employees" method="get" style="display: flex; gap: 15px; margin: 0; align-items: flex-end;">
+      <div style="width: 200px;">
+        <label style="font-size: 12px; color: var(--muted);">Посада</label>
+        <select name="role" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+          <option value="">Всі посади</option>
+          <option value="Касир" {% if search_role == 'Касир' %}selected{% endif %}>Касир</option>
+          <option value="Менеджер" {% if search_role == 'Менеджер' %}selected{% endif %}>Менеджер</option>
+        </select>
+      </div>
+      <div style="flex: 1;">
+        <label style="font-size: 12px; color: var(--muted);">Прізвище працівника (пошук телефону/адреси)</label>
+        <input type="text" name="surname" value="{{ search_surname }}" placeholder="Введіть перші літери прізвища..." style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+      </div>
+      <div style="width: 180px;">
+        <label style="font-size: 12px; color: var(--muted);">Сортувати за</label>
+        <select name="sort_by" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+          <option value="surname" {% if sort_by == 'surname' %}selected{% endif %}>Прізвищем (А-Я)</option>
+          <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID працівника</option>
+          <option value="role" {% if sort_by == 'role' %}selected{% endif %}>Посадою</option>
+        </select>
+      </div>
+      <button type="submit" class="btn primary">Шукати</button>
+      <a href="/employees" class="btn" style="text-decoration: none; border: 1px solid var(--line);">Скинути</a>
+    </form>
+  </div>
+
+  <div class="tile" style="padding: 0; overflow-x: auto;">
+    <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead style="background: var(--bg); border-bottom: 1px solid var(--line);">
+        <tr>
+          <th style="padding: 12px 15px;">ID</th>
+          <th style="padding: 12px 15px;">ПІБ</th>
+          <th style="padding: 12px 15px;">Посада</th>
+          <th style="padding: 12px 15px;">Телефон</th>
+          <th style="padding: 12px 15px;">Адреса</th>
+          <th style="padding: 12px 15px;">Оклад</th>
+          <th class="no-print" style="padding: 12px 15px; text-align: right;">Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for emp in employees %}
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 12px 15px; font-family: monospace; color: var(--muted);">{{ emp.id_employee }}</td>
+          <td style="padding: 12px 15px; font-weight: 500;">{{ emp.empl_surname }} {{ emp.empl_name }} {{ emp.empl_patronymic or '' }}</td>
+          <td style="padding: 12px 15px;">
+            <span style="background: {% if emp.empl_role == 'Менеджер' %}#fef3c7; color: #d97706{% else %}#d1fae5; color: #059669{% endif %}; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+              {{ emp.empl_role }}
+            </span>
+          </td>
+          <td style="padding: 12px 15px;">{{ emp.phone_number }}</td>
+          <td style="padding: 12px 15px; font-size: 13px;">м. {{ emp.city }}, вул. {{ emp.street }}</td>
+          <td style="padding: 12px 15px; font-weight: bold;">{{ emp.salary }} ₴</td>
+          <td class="no-print" style="padding: 12px 15px; text-align: right;">
+            <button class="btn" style="padding: 4px 8px; font-size: 12px; cursor: pointer;" onclick='editEmployee({{ emp | tojson }})'>Змінити</button>
+            <button class="btn" style="padding: 4px 8px; font-size: 12px; color: red; border-color: red; cursor: pointer;" onclick="deleteEmployee('{{ emp.id_employee }}')">Видалити</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="padding: 30px; text-align: center; color: var(--muted);">Працівників не знайдено.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="empModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+  <div class="tile" style="width: 700px; max-width: 90%; max-height: 90vh; overflow-y: auto; background: var(--surface);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 15px; margin-bottom: 20px;">
+      <h2 id="modalTitle" style="margin: 0; font-size: 20px;">Анкета працівника</h2>
+      <button type="button" onclick="closeModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">✖</button>
+    </div>
+
+    <form id="empForm" onsubmit="saveEmployee(event)">
+      <input type="hidden" id="formMode" value="create">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">ID працівника *</label>
+          <input type="text" id="m_id" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Посада *</label>
+          <select id="m_role" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            <option value="Касир">Касир</option>
+            <option value="Менеджер">Менеджер</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--muted);">Зарплата (Оклад) *</label>
+          <input type="number" id="m_salary" required step="0.01" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div><label style="font-size: 12px; color: var(--muted);">Прізвище *</label><input type="text" id="m_surname" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        <div><label style="font-size: 12px; color: var(--muted);">Ім'я *</label><input type="text" id="m_name" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        <div><label style="font-size: 12px; color: var(--muted);">По батькові</label><input type="text" id="m_patronymic" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div><label style="font-size: 12px; color: var(--muted);">Телефон *</label><input type="text" id="m_phone" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        
+        <div class="create-only"><label style="font-size: 12px; color: var(--muted);">Дата народження *</label><input type="date" id="m_dob" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        <div class="create-only"><label style="font-size: 12px; color: var(--muted);">Дата початку *</label><input type="date" id="m_start" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div><label style="font-size: 12px; color: var(--muted);">Місто *</label><input type="text" id="m_city" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        <div><label style="font-size: 12px; color: var(--muted);">Вулиця *</label><input type="text" id="m_street" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        <div><label style="font-size: 12px; color: var(--muted);">Індекс *</label><input type="text" id="m_zip" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+      </div>
+
+      <div style="margin-bottom: 25px;">
+        <label style="font-size: 12px; color: var(--muted);">Пароль для входу
+            <span id="pwdHint" style="color: var(--accent); display: none;">(Залиште пустим, щоб не змінювати)</span>
+        </label>
+        <input type="password" id="m_password" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn" onclick="closeModal()" style="border: 1px solid var(--line);">Скасувати</button>
+        <button type="submit" class="btn primary">Зберегти дані</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const modal = document.getElementById('empModal');
+  const form = document.getElementById('empForm');
+
+  function openModal() {
+    form.reset();
+    document.getElementById('formMode').value = 'create';
+    document.getElementById('modalTitle').innerText = 'Найняти працівника';
+    document.getElementById('m_id').readOnly = false;
+    document.getElementById('m_password').required = true;
+    document.getElementById('pwdHint').style.display = 'none';
+    
+    // Показуємо поля дат і пароля, робимо їх обов'язковими
+    document.querySelectorAll('.create-only').forEach(el => {
+      el.style.display = 'block';
+      el.querySelector('input').required = true;
+    });
+    modal.style.display = 'flex';
+  }
+
+  function editEmployee(emp) {
+    document.getElementById('formMode').value = 'update';
+    document.getElementById('modalTitle').innerText = `Редагування працівника ${emp.id_employee}`;
+    
+    document.getElementById('m_id').value = emp.id_employee;
+    document.getElementById('m_id').readOnly = true; 
+    document.getElementById('m_role').value = emp.empl_role;
+    document.getElementById('m_salary').value = emp.salary;
+    document.getElementById('m_surname').value = emp.empl_surname;
+    document.getElementById('m_name').value = emp.empl_name;
+    document.getElementById('m_patronymic').value = emp.empl_patronymic || '';
+    document.getElementById('m_phone').value = emp.phone_number;
+    document.getElementById('m_city').value = emp.city;
+    document.getElementById('m_street').value = emp.street;
+    document.getElementById('m_zip').value = emp.zip_code;
+    document.getElementById('m_password').required = false;
+    document.getElementById('pwdHint').style.display = 'inline';
+    document.getElementById('m_password').value = '';
+    
+    document.querySelectorAll('.create-only').forEach(el => {
+      el.style.display = 'none';
+      el.querySelector('input').required = false;
+    });
+    
+    modal.style.display = 'flex';
+  }
+
+  function closeModal() { modal.style.display = 'none'; }
+
+  async function saveEmployee(event) {
+    event.preventDefault();
+    const mode = document.getElementById('formMode').value;
+    const empId = document.getElementById('m_id').value;
+    
+    let payload = {
+      empl_surname: document.getElementById('m_surname').value,
+      empl_name: document.getElementById('m_name').value,
+      empl_patronymic: document.getElementById('m_patronymic').value,
+      empl_role: document.getElementById('m_role').value,
+      salary: parseFloat(document.getElementById('m_salary').value),
+      phone_number: document.getElementById('m_phone').value,
+      city: document.getElementById('m_city').value,
+      street: document.getElementById('m_street').value,
+      zip_code: document.getElementById('m_zip').value,
+      password: document.getElementById('m_password').value
+    };
+
+    if (mode === 'create') {
+      payload.id_employee = empId;
+      payload.date_of_birth = document.getElementById('m_dob').value;
+      payload.date_of_start = document.getElementById('m_start').value;
+      payload.password = document.getElementById('m_password').value;
+    }
+
+    const url = mode === 'create' ? '/employees' : `/employees/${empId}`;
+    const method = mode === 'create' ? 'POST' : 'PUT';
+
+    try {
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert('Помилка: ' + error.detail);
+      }
+    } catch (err) { alert("Помилка з'єднання з сервером"); }
+  }
+
+  async function deleteEmployee(empId) {
+    if (!confirm(`Звільнити працівника ${empId} назавжди?`)) return;
+    try {
+      const response = await fetch(`/employees/${empId}`, { method: 'DELETE' });
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert('Помилка: ' + error.detail);
+      }
+    } catch (err) { alert('Помилка з\'єднання з сервером'); }
+  }
+</script>
+{% endblock %}

@@ -88,6 +88,7 @@ class EmployeeUpdate(BaseModel):
     city: str
     street: str
     zip_code: str
+    password: str | None = None
 
 app = FastAPI(title="ZLAGODA Mini-Supermarket")
 
@@ -668,13 +669,24 @@ def update_employee(
         cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (id_employee,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="працівника не знайдено")
-        cursor.execute("""
-            UPDATE Employee 
-            SET empl_surname = ?, empl_name = ?, empl_patronymic = ?, empl_role = ?, 
-                salary = ?, phone_number = ?, city = ?, street = ?, zip_code = ?
-            WHERE id_employee = ?
-        """, (employee.empl_surname, employee.empl_name, employee.empl_patronymic, employee.empl_role, 
-              employee.salary, employee.phone_number, employee.city, employee.street, employee.zip_code, id_employee))
+        
+        if employee.password:
+            hashed_pwd = get_password_hash(employee.password)
+            cursor.execute("""
+                UPDATE Employee 
+                SET empl_surname = ?, empl_name = ?, empl_patronymic = ?, empl_role = ?, 
+                    salary = ?, phone_number = ?, city = ?, street = ?, zip_code = ?, password_hash = ?
+                WHERE id_employee = ?
+            """, (employee.empl_surname, employee.empl_name, employee.empl_patronymic, employee.empl_role, 
+                  employee.salary, employee.phone_number, employee.city, employee.street, employee.zip_code, hashed_pwd, id_employee))
+        else:
+            cursor.execute("""
+                UPDATE Employee 
+                SET empl_surname = ?, empl_name = ?, empl_patronymic = ?, empl_role = ?, 
+                    salary = ?, phone_number = ?, city = ?, street = ?, zip_code = ?
+                WHERE id_employee = ?
+            """, (employee.empl_surname, employee.empl_name, employee.empl_patronymic, employee.empl_role, 
+                employee.salary, employee.phone_number, employee.city, employee.street, employee.zip_code, id_employee))
         db.commit()
         return {"message": "дані працівника оновлено"}
     except Exception as e:
