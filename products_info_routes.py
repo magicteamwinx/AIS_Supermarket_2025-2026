@@ -4,18 +4,18 @@
 Три вкладки (= три різні сутності й три вимоги ТЗ):
   • tab=products   -> усі БАЗОВІ товари (Product), відсортовані за назвою      (М-9 / К-1)
                       разом із позначкою, чи виставлено товар у залу
-                      (показує й товари, яких ЗАРАЗ немає в магазині)
-  • tab=store      -> усі товари В МАГАЗИНІ (Store_Product), сорт. за кількістю (М-10 / К-2)
+  • tab=store      -> усі товари В МАГАЗИНІ (Store_Product)                     (М-10 / К-2)
   • tab=categories -> усі категорії (Category), відсортовані за назвою          (М-8) — лише менеджер
 
-Ролі:
-  • Касир   -> лише перегляд і пошук.
-  • Менеджер -> те саме + керування наявністю в залі (виставити / змінити / прибрати)
-               і вкладка «Категорії».
-
-Реєстрація у main.py:
-    from products_info_routes import router as products_info_router
-    app.include_router(products_info_router)
+Логіка акційного товару (вимога: акційна ціна = звичайна × 0,8):
+  • Форма «виставити в залу» створює ЛИШЕ звичайну позицію.
+  • Акційна позиція створюється дією /store-product/promote від наявної звичайної:
+    ціна обчислюється на сервері (×0,8) і НЕ вводиться вручну; у звичайної проставляється UPC_prom.
+  • Кількість акційної ПЕРЕНОСИТЬСЯ зі звичайної (це ті самі фізичні одиниці):
+    promote зменшує залишок звичайної, delete акційної повертає одиниці назад,
+    зміна кількості акційної переносить різницю між позиціями.
+  • Переоцінка: зміна ціни звичайної автоматично перераховує ціну акційної пари.
+  • n<=2: у товару щонайбільше одна звичайна + одна акційна позиція.
 """
 import sqlite3
 
@@ -30,6 +30,26 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 BASE_URL = "/products-info"
+PROMO_RATE = 0.8  # стандартна знижка -20%
+
+
+def _promo_price(base_price: float) -> float:
+    """Похідна акційна ціна від звичайної (округлення до копійок)."""
+    return round(float(base_price) * PROMO_RATE, 2)
+
+
+def _suggest_promo_upc(base: str, existing: set) -> str:
+    """Вільний UPC для акційної позиції на основі UPC звичайної (≤12 символів)."""
+    cand = base[:11] + "P"
+    if cand not in existing:
+        return cand
+    i = 2
+    while True:
+        suffix = f"P{i}"
+        cand = base[: 12 - len(suffix)] + suffix
+        if cand not in existing:
+            return cand
+        i += 1
 
 
 def _redirect(msg: str | None = None, err: str | None = None, tab: str = "store") -> RedirectResponse:
@@ -44,12 +64,12 @@ def _redirect(msg: str | None = None, err: str | None = None, tab: str = "store"
 @router.get("/products-info", response_class=HTMLResponse)
 def catalog_page(
     request: Request,
-    tab: str = "store",              # products | store | categories
-    q: str | None = None,            # пошук (назва, а на вкладці "store" — ще й UPC)
-    category: str | None = None,     # фільтр за категорією
-    promo: str = "all",              # all | promo | regular   (вкладка store)
-    avail: str = "all",              # all | instock | out      (вкладка store)
-    sort: str | None = None,         # store: quantity | name
+    tab: str = "store",
+    q: str | None = None,
+    category: str | None = None,
+    promo: str = "all",
+    avail: str = "all",
+    sort: str | None = None,
     msg: str | None = None,
     err: str | None = None,
     current_user: dict | None = Depends(get_user_from_cookie),
@@ -59,7 +79,6 @@ def catalog_page(
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
     is_manager = current_user["role"] == "Менеджер"
-    # категорії — лише для менеджера; інакше повертаємось на "Наявність"
     if tab == "categories" and not is_manager:
         tab = "store"
     if tab not in ("products", "store", "categories"):
@@ -69,17 +88,15 @@ def catalog_page(
     db.create_function("py_lower", 1, lambda x: x.lower() if x else x)
     cursor = db.cursor()
 
-    # категорії (для випадаючих списків і вкладки "categories"), відсортовані за назвою
     cursor.execute("SELECT category_number, category_name FROM Category ORDER BY category_name")
     categories = [dict(r) for r in cursor.fetchall()]
 
-    # повний перелік товарів для випадаючого списку у формі "виставити в залу"
     cursor.execute("SELECT id_product, product_name FROM Product ORDER BY product_name")
     all_products = cursor.fetchall()
 
     products, store, cat_rows = [], [], []
+    taken_upcs = []
 
-    # ── вкладка "Товари" (М-9 / К-1): усі базові товари ──
     if tab == "products":
         if sort not in ("name", "category"):
             sort = "name"
@@ -100,24 +117,22 @@ def catalog_page(
             params.append(f"%{q.lower()}%")
         if conds:
             query += " WHERE " + " AND ".join(conds)
-        if sort == "category":
-            query += " ORDER BY c.category_name, p.product_name"
-        else:  # name
-            query += " ORDER BY p.product_name"
+        query += " ORDER BY c.category_name, p.product_name" if sort == "category" else " ORDER BY p.product_name"
         cursor.execute(query, params)
         products = [dict(r) for r in cursor.fetchall()]
 
-    # ── вкладка "Наявність у залі" (М-10 / К-2): усі Store_Product ──
     elif tab == "store":
         if sort not in ("quantity", "name"):
-            sort = "name"   # М-10: за замовчуванням сортуємо за назвою
+            sort = "name"
         query = """
             SELECT sp.UPC, sp.UPC_prom, sp.id_product, sp.selling_price,
                    sp.products_number, sp.promotional_product,
-                   p.product_name, p.characteristics, c.category_name, p.category_number
+                   p.product_name, p.characteristics, c.category_name, p.category_number,
+                   pr.UPC AS prom_UPC
             FROM Store_Product sp
             JOIN Product p ON sp.id_product = p.id_product
             JOIN Category c ON p.category_number = c.category_number
+            LEFT JOIN Store_Product pr ON pr.UPC = sp.UPC_prom
         """
         conds, params = [], []
         if cat_id:
@@ -137,14 +152,19 @@ def catalog_page(
             conds.append("sp.products_number = 0")
         if conds:
             query += " WHERE " + " AND ".join(conds)
-        if sort == "name":
-            query += " ORDER BY p.product_name"
-        else:  # quantity
-            query += " ORDER BY sp.products_number DESC, p.product_name"
+        query += " ORDER BY p.product_name" if sort == "name" else " ORDER BY sp.products_number DESC, p.product_name"
         cursor.execute(query, params)
         store = [dict(r) for r in cursor.fetchall()]
 
-    # ── вкладка "Категорії" (М-8): усі категорії, пошук + сортування ──
+        cursor.execute("SELECT UPC FROM Store_Product")
+        existing_upcs = {r["UPC"] for r in cursor.fetchall()}
+        taken_upcs = sorted(existing_upcs)
+        for s in store:
+            if not s["promotional_product"] and not s["prom_UPC"]:
+                s["suggest_prom"] = _suggest_promo_upc(s["UPC"], existing_upcs)
+            else:
+                s["suggest_prom"] = ""
+
     elif tab == "categories":
         if sort not in ("name", "number"):
             sort = "name"
@@ -171,23 +191,21 @@ def catalog_page(
             "cat_rows": cat_rows,
             "all_products": all_products,
             "categories": categories,
-            "f": {"q": q or "", "category": cat_id, "promo": promo,
-                  "avail": avail, "sort": sort},
+            "taken_upcs": taken_upcs,
+            "f": {"q": q or "", "category": cat_id, "promo": promo, "avail": avail, "sort": sort},
             "msg": msg,
             "err": err,
         },
     )
 
 
-# ───────────────────── менеджер: виставити товар у залу ─────────────────────
+# ───────────────────── менеджер: виставити ЗВИЧАЙНУ позицію у залу ─────────────────────
 @router.post("/products-info/store-product/add")
 def add_store_product(
     UPC: str = Form(...),
     id_product: int = Form(...),
     selling_price: float = Form(...),
     products_number: int = Form(...),
-    promotional_product: str | None = Form(None),
-    UPC_prom: str | None = Form(None),
     current_user: dict | None = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
 ):
@@ -195,28 +213,74 @@ def add_store_product(
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     if current_user["role"] != "Менеджер":
         return _redirect(err="Виставляти товар у залу може лише менеджер")
+    if selling_price < 0 or products_number < 0:
+        return _redirect(err="Ціна та кількість не можуть бути від'ємними")
 
-    is_promo = 1 if promotional_product else 0
-    UPC_prom = UPC_prom or None
     cursor = db.cursor()
     try:
-        cursor.execute("SELECT promotional_product FROM Store_Product WHERE id_product = ?", (id_product,))
-        existing = [row["promotional_product"] for row in cursor.fetchall()]
-        if len(existing) >= 2:
-            return _redirect(err="У товару вже є дві позиції в залі (звичайна та акційна)")
-        if is_promo in existing:
-            kind = "акційну" if is_promo else "звичайну"
-            return _redirect(err=f"У товару вже є {kind} позицію в залі")
+        cursor.execute("SELECT 1 FROM Store_Product WHERE id_product = ? AND promotional_product = 0", (id_product,))
+        if cursor.fetchone():
+            return _redirect(err="У товару вже є звичайна позиція в залі")
         cursor.execute("""
-            INSERT INTO Store_Product
-                (UPC, UPC_prom, id_product, selling_price, products_number, promotional_product)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (UPC, UPC_prom, id_product, selling_price, products_number, is_promo))
+            INSERT INTO Store_Product (UPC, UPC_prom, id_product, selling_price, products_number, promotional_product)
+            VALUES (?, NULL, ?, ?, ?, 0)
+        """, (UPC, id_product, selling_price, products_number))
         db.commit()
         return _redirect(msg=f"Товар з UPC {UPC} виставлено в залу")
     except sqlite3.IntegrityError:
         db.rollback()
         return _redirect(err="Такий UPC уже існує або вказано неіснуючий товар")
+    except Exception as e:
+        db.rollback()
+        return _redirect(err=f"Помилка сервера: {e}")
+
+
+# ───────────────────── менеджер: ПЕРЕВЕСТИ звичайну позицію в АКЦІЮ ─────────────────────
+@router.post("/products-info/store-product/promote")
+def promote_store_product(
+    source_UPC: str = Form(...),
+    UPC: str = Form(...),
+    products_number: int = Form(...),
+    current_user: dict | None = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    if current_user["role"] != "Менеджер":
+        return _redirect(err="Створювати акційну позицію може лише менеджер")
+    if products_number < 0:
+        return _redirect(err="Кількість не може бути від'ємною")
+
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            "SELECT id_product, selling_price, products_number, promotional_product, UPC_prom "
+            "FROM Store_Product WHERE UPC = ?", (source_UPC,))
+        src = cursor.fetchone()
+        if not src:
+            return _redirect(err="Звичайну позицію не знайдено")
+        if src["promotional_product"]:
+            return _redirect(err="Не можна зробити акцію на акційну позицію")
+        # реальна наявність акційної позиції (висяче UPC_prom із даних не блокує)
+        cursor.execute("SELECT 1 FROM Store_Product WHERE id_product = ? AND promotional_product = 1", (src["id_product"],))
+        if cursor.fetchone():
+            return _redirect(err="У товару вже є акційна позиція")
+        if products_number > src["products_number"]:
+            return _redirect(err=f"На акцію не можна виставити більше, ніж є у звичайній позиції (доступно: {src['products_number']})")
+
+        promo_price = _promo_price(src["selling_price"])
+        cursor.execute("""
+            INSERT INTO Store_Product (UPC, UPC_prom, id_product, selling_price, products_number, promotional_product)
+            VALUES (?, NULL, ?, ?, ?, 1)
+        """, (UPC, src["id_product"], promo_price, products_number))
+        cursor.execute(
+            "UPDATE Store_Product SET UPC_prom = ?, products_number = products_number - ? WHERE UPC = ?",
+            (UPC, products_number, source_UPC))
+        db.commit()
+        return _redirect(msg=f"Створено акційну позицію {UPC} за ціною {promo_price:.2f} ₴ ({products_number} шт перенесено зі звичайної)")
+    except sqlite3.IntegrityError:
+        db.rollback()
+        return _redirect(err="Такий UPC акційного уже існує")
     except Exception as e:
         db.rollback()
         return _redirect(err=f"Помилка сервера: {e}")
@@ -228,8 +292,6 @@ def update_store_product(
     UPC: str = Form(...),
     selling_price: float = Form(...),
     products_number: int = Form(...),
-    promotional_product: str | None = Form(None),
-    UPC_prom: str | None = Form(None),
     current_user: dict | None = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
 ):
@@ -237,20 +299,29 @@ def update_store_product(
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     if current_user["role"] != "Менеджер":
         return _redirect(err="Редагувати наявність може лише менеджер")
+    if selling_price < 0 or products_number < 0:
+        return _redirect(err="Ціна та кількість не можуть бути від'ємними")
 
-    is_promo = 1 if promotional_product else 0
-    UPC_prom = UPC_prom or None
     cursor = db.cursor()
     try:
-        cursor.execute("SELECT 1 FROM Store_Product WHERE UPC = ?", (UPC,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT promotional_product, UPC_prom, products_number FROM Store_Product WHERE UPC = ?", (UPC,))
+        row = cursor.fetchone()
+        if not row:
             return _redirect(err="Позицію в залі не знайдено")
-        cursor.execute("""
-            UPDATE Store_Product
-            SET selling_price = ?, products_number = ?,
-                promotional_product = ?, UPC_prom = ?
-            WHERE UPC = ?
-        """, (selling_price, products_number, is_promo, UPC_prom, UPC))
+
+        if row["promotional_product"]:
+            # ціна — похідна від батьківської звичайної; кількість незалежна
+            cursor.execute("SELECT selling_price FROM Store_Product WHERE UPC_prom = ?", (UPC,))
+            parent = cursor.fetchone()
+            price = _promo_price(parent["selling_price"]) if parent else selling_price
+            cursor.execute("UPDATE Store_Product SET selling_price = ?, products_number = ? WHERE UPC = ?",
+                           (price, products_number, UPC))
+        else:
+            cursor.execute("UPDATE Store_Product SET selling_price = ?, products_number = ? WHERE UPC = ?",
+                           (selling_price, products_number, UPC))
+            if row["UPC_prom"]:
+                cursor.execute("UPDATE Store_Product SET selling_price = ? WHERE UPC = ?",
+                               (_promo_price(selling_price), row["UPC_prom"]))
         db.commit()
         return _redirect(msg=f"Позицію {UPC} оновлено")
     except Exception as e:
@@ -272,10 +343,19 @@ def delete_store_product(
 
     cursor = db.cursor()
     try:
-        cursor.execute("SELECT 1 FROM Store_Product WHERE UPC = ?", (UPC,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT promotional_product, UPC_prom, products_number FROM Store_Product WHERE UPC = ?", (UPC,))
+        row = cursor.fetchone()
+        if not row:
             return _redirect(err="Позицію в залі не знайдено")
-        cursor.execute("DELETE FROM Store_Product WHERE UPC = ?", (UPC,))
+
+        if row["promotional_product"]:
+            # лише обнуляємо посилання у звичайної пари; кількість НЕ повертаємо (списується)
+            cursor.execute("UPDATE Store_Product SET UPC_prom = NULL WHERE UPC_prom = ?", (UPC,))
+            cursor.execute("DELETE FROM Store_Product WHERE UPC = ?", (UPC,))
+        else:
+            if row["UPC_prom"]:
+                cursor.execute("DELETE FROM Store_Product WHERE UPC = ?", (row["UPC_prom"],))
+            cursor.execute("DELETE FROM Store_Product WHERE UPC = ?", (UPC,))
         db.commit()
         return _redirect(msg=f"Позицію {UPC} прибрано із зали")
     except sqlite3.IntegrityError:
@@ -303,10 +383,8 @@ def add_product(
         return _redirect(err="Додавати товари може лише менеджер", tab="products")
     cursor = db.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO Product (category_number, product_name, characteristics) VALUES (?, ?, ?)",
-            (category_number, product_name, characteristics),
-        )
+        cursor.execute("INSERT INTO Product (category_number, product_name, characteristics) VALUES (?, ?, ?)",
+                       (category_number, product_name, characteristics))
         db.commit()
         return _redirect(msg=f"Товар «{product_name}» додано", tab="products")
     except sqlite3.IntegrityError:
@@ -335,10 +413,8 @@ def update_product(
         cursor.execute("SELECT 1 FROM Product WHERE id_product = ?", (id_product,))
         if not cursor.fetchone():
             return _redirect(err="Товар не знайдено", tab="products")
-        cursor.execute(
-            "UPDATE Product SET category_number = ?, product_name = ?, characteristics = ? WHERE id_product = ?",
-            (category_number, product_name, characteristics, id_product),
-        )
+        cursor.execute("UPDATE Product SET category_number = ?, product_name = ?, characteristics = ? WHERE id_product = ?",
+                       (category_number, product_name, characteristics, id_product))
         db.commit()
         return _redirect(msg=f"Товар «{product_name}» оновлено", tab="products")
     except sqlite3.IntegrityError:
@@ -368,7 +444,6 @@ def delete_product(
         db.commit()
         return _redirect(msg="Товар видалено", tab="products")
     except sqlite3.IntegrityError:
-        # Store_Product.id_product -> Product (ON DELETE NO ACTION)
         db.rollback()
         return _redirect(err="Спочатку приберіть товар із зали (є позиції у «Наявності»)", tab="products")
     except Exception as e:
@@ -418,8 +493,7 @@ def update_category(
         cursor.execute("SELECT 1 FROM Category WHERE category_number = ?", (category_number,))
         if not cursor.fetchone():
             return _redirect(err="Категорію не знайдено", tab="categories")
-        cursor.execute("UPDATE Category SET category_name = ? WHERE category_number = ?",
-                       (category_name, category_number))
+        cursor.execute("UPDATE Category SET category_name = ? WHERE category_number = ?", (category_name, category_number))
         db.commit()
         return _redirect(msg="Категорію оновлено", tab="categories")
     except sqlite3.IntegrityError:
@@ -449,7 +523,6 @@ def delete_category(
         db.commit()
         return _redirect(msg="Категорію видалено", tab="categories")
     except sqlite3.IntegrityError:
-        # Product.category_number -> Category (ON DELETE NO ACTION)
         db.rollback()
         return _redirect(err="Не можна видалити: у категорії є товари", tab="categories")
     except Exception as e:

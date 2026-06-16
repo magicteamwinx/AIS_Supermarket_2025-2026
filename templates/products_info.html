@@ -115,6 +115,7 @@
   {% elif tab == 'store' %}
 
   {% if is_manager %}
+  {# Форма створює ЛИШЕ звичайну позицію. Акційна робиться дією «На акцію» на рядку. #}
   <details class="cat-panel">
     <summary>+ Виставити товар у залу</summary>
     <form method="post" action="/products-info/store-product/add">
@@ -125,15 +126,17 @@
             {% for p in all_products %}<option value="{{ p.id_product }}">{{ p.product_name }}</option>{% endfor %}
           </select>
         </div>
-        <div class="field"><label>UPC (до 12 символів)</label><input type="text" name="UPC" maxlength="12" required></div>
-        <div class="field"><label>Ціна продажу</label><input type="number" id="add_price" name="selling_price" step="0.01" min="0" required></div>
+        <div class="field">
+          <label>UPC (до 12 символів)</label>
+          <input type="text" name="UPC" id="add_upc" maxlength="12" required>
+          <span class="upc-warn" id="add_upc_warn"></span>
+        </div>
+        <div class="field"><label>Ціна продажу</label><input type="number" name="selling_price" step="0.01" min="0" required></div>
         <div class="field"><label>Кількість одиниць</label><input type="number" name="products_number" min="0" value="0" required></div>
-        <div class="field"><label>UPC акційного (необов.)</label><input type="text" name="UPC_prom" maxlength="12"></div>
-        <div class="field cat-check"><label class="chk"><input type="checkbox" id="add_promo" name="promotional_product"> Акційний товар (−20%)</label></div>
       </div>
       <div class="cat-actions">
-        <span class="page-sub" style="margin:0" id="add_hint"></span>
-        <button class="btn primary" type="submit">Виставити</button>
+        <span class="page-sub" style="margin:0">Акційну позицію створюйте кнопкою «На акцію» у списку.</span>
+        <button class="btn primary" type="submit" id="add_submit">Виставити</button>
       </div>
     </form>
   </details>
@@ -207,6 +210,13 @@
         {% if is_manager %}
         <td>
           <div class="sp-acts">
+            {% if not s.promotional_product %}
+              {% if s.prom_UPC %}
+                <span class="muted" style="font-size:12px;">вже на акції</span>
+              {% else %}
+                <button type="button" class="btn" onclick='promote({{ s|tojson }})'>На акцію</button>
+              {% endif %}
+            {% endif %}
             <button type="button" class="btn" onclick='editSP({{ s|tojson }})'>Змінити</button>
             <form method="post" action="/products-info/store-product/delete" onsubmit="return confirm('Прибрати {{ s.UPC }} із зали?')">
               <input type="hidden" name="UPC" value="{{ s.UPC }}">
@@ -276,18 +286,58 @@
 
 </div>
 
-{# ── менеджер: модалка редагування позиції в залі ── #}
+{# ── менеджер: модалки ── #}
 {% if is_manager %}
+
+{# перевести звичайну позицію в акцію (ціна — похідна; кількість переноситься зі звичайної) #}
+<div class="modal-bg" id="promoteBg">
+  <div class="modal">
+    <h3>Перевести в акцію</h3>
+    <form method="post" action="/products-info/store-product/promote">
+      <p class="page-sub" id="pr_name" style="margin-top:0"></p>
+      <input type="hidden" name="source_UPC" id="pr_upc">
+      <div class="cat-grid">
+        <div class="field">
+          <label>Акційна ціна (авто)</label>
+          <input type="text" id="pr_price_v" class="locked" disabled>
+          <span class="page-sub" id="pr_price_hint" style="margin:0"></span>
+        </div>
+        <div class="field">
+          <label>UPC акційного</label>
+          <input type="text" name="UPC" id="pr_newupc" maxlength="12" required>
+          <span class="upc-warn" id="pr_upc_warn"></span>
+        </div>
+        <div class="field">
+          <label>Кількість одиниць на акцію</label>
+          <input type="number" name="products_number" id="pr_qty" min="0" value="0" required>
+          <span class="page-sub" id="pr_qty_hint" style="margin:0"></span>
+        </div>
+      </div>
+      <div class="cat-actions">
+        <button type="button" class="btn" onclick="closePromote()">Скасувати</button>
+        <button type="submit" class="btn primary" id="pr_submit">Перевести в акцію</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# редагування позиції в залі: для акційної ціна заблокована (похідна), кількість переноситься #}
 <div class="modal-bg" id="editBg">
   <div class="modal">
     <h3>Редагувати позицію в залі</h3>
     <form method="post" action="/products-info/store-product/update">
       <div class="cat-grid">
         <div class="field"><label>UPC</label><input type="text" id="e_upc_v" disabled><input type="hidden" name="UPC" id="e_upc"></div>
-        <div class="field"><label>Акц. UPC (необов.)</label><input type="text" name="UPC_prom" id="e_prom" maxlength="12"></div>
-        <div class="field"><label>Ціна продажу</label><input type="number" name="selling_price" id="e_price" step="0.01" min="0" required></div>
-        <div class="field"><label>Кількість одиниць</label><input type="number" name="products_number" id="e_qty" min="0" required></div>
-        <div class="field cat-check"><label class="chk"><input type="checkbox" name="promotional_product" id="e_promo"> Акційний товар</label></div>
+        <div class="field">
+          <label id="e_price_label">Ціна продажу</label>
+          <input type="number" name="selling_price" id="e_price" step="0.01" min="0" required>
+          <span class="page-sub" id="e_price_hint" style="margin:0"></span>
+        </div>
+        <div class="field">
+          <label>Кількість одиниць</label>
+          <input type="number" name="products_number" id="e_qty" min="0" required>
+          <span class="page-sub" id="e_qty_hint" style="margin:0"></span>
+        </div>
       </div>
       <div class="cat-actions">
         <button type="button" class="btn" onclick="closeEdit()">Скасувати</button>
@@ -335,22 +385,71 @@
     </form>
   </div>
 </div>
+
+<style>
+  .upc-warn{ display:block; font-size:12px; color:#a32d2d; margin-top:2px; min-height:14px; }
+</style>
 {% endif %}
 
 <script>
   {% if is_manager %}
-  var ap=document.getElementById('add_price'), apr=document.getElementById('add_promo'), ah=document.getElementById('add_hint');
-  if(ap&&apr){
-    function hint(){ ah.textContent = (apr.checked && ap.value) ? 'Акційна ціна ≈ '+(ap.value*0.8).toFixed(2)+' ₴ (×0.8)' : ''; }
-    ap.addEventListener('input',hint); apr.addEventListener('change',hint);
+  var TAKEN = {{ taken_upcs|tojson }};
+
+  function _checkUpc(inp, warn, submit){
+    var v = (inp.value || '').trim();
+    var taken = !!v && TAKEN.indexOf(v) !== -1;
+    warn.textContent = taken ? 'Цей UPC вже зайнятий — оберіть інший' : '';
+    if (submit) submit.disabled = taken;
+    return !taken;
   }
+  function bindUpc(inpId, warnId, submitId){
+    var inp = document.getElementById(inpId);
+    if (!inp) return;
+    var warn = document.getElementById(warnId), submit = document.getElementById(submitId);
+    inp.addEventListener('input', function(){ _checkUpc(inp, warn, submit); });
+  }
+  bindUpc('add_upc', 'add_upc_warn', 'add_submit');
+  bindUpc('pr_newupc', 'pr_upc_warn', 'pr_submit');
+
+  function promote(s){
+    document.getElementById('pr_upc').value = s.UPC;
+    document.getElementById('pr_name').textContent =
+      s.product_name + ' · ' + s.UPC + ' · звичайна ціна ' + Number(s.selling_price).toFixed(2) + ' ₴';
+    document.getElementById('pr_price_v').value = (Number(s.selling_price) * 0.8).toFixed(2) + ' ₴';
+    document.getElementById('pr_price_hint').textContent =
+      '= ' + Number(s.selling_price).toFixed(2) + ' × 0,8 · редагувати не можна';
+    // автопідказка вільного UPC (можна змінити вручну)
+    document.getElementById('pr_newupc').value = s.suggest_prom || (s.UPC + 'P');
+    document.getElementById('pr_upc_warn').textContent = '';
+    document.getElementById('pr_submit').disabled = false;
+    // кількість переноситься зі звичайної — не більше наявного залишку
+    var qty = document.getElementById('pr_qty');
+    qty.value = 0; qty.max = s.products_number;
+    document.getElementById('pr_qty_hint').textContent = 'доступно ' + s.products_number + ' шт (перенесеться зі звичайної)';
+    document.getElementById('promoteBg').classList.add('open');
+  }
+  function closePromote(){ document.getElementById('promoteBg').classList.remove('open'); }
+
   function editSP(s){
-    document.getElementById('e_upc').value=s.UPC;
-    document.getElementById('e_upc_v').value=s.UPC;
-    document.getElementById('e_prom').value=s.UPC_prom||'';
-    document.getElementById('e_price').value=s.selling_price;
-    document.getElementById('e_qty').value=s.products_number;
-    document.getElementById('e_promo').checked=!!s.promotional_product;
+    document.getElementById('e_upc').value = s.UPC;
+    document.getElementById('e_upc_v').value = s.UPC;
+    document.getElementById('e_price').value = Number(s.selling_price).toFixed(2);
+    document.getElementById('e_qty').value = s.products_number;
+    var pf = document.getElementById('e_price'),
+        lbl = document.getElementById('e_price_label'),
+        ph = document.getElementById('e_price_hint'),
+        qh = document.getElementById('e_qty_hint');
+    if (s.promotional_product) {
+      lbl.textContent = 'Акційна ціна (авто)';
+      ph.textContent = 'Похідна від ціни звичайного (×0,8) · редагувати не можна';
+      qh.textContent = 'Кількість акційної не впливає на звичайну позицію';
+      pf.readOnly = true; pf.classList.add('locked');
+    } else {
+      lbl.textContent = 'Ціна продажу';
+      ph.textContent = 'Зміна ціни автоматично переоцінить акційну позицію (якщо є)';
+      qh.textContent = '';
+      pf.readOnly = false; pf.classList.remove('locked');
+    }
     document.getElementById('editBg').classList.add('open');
   }
   function closeEdit(){ document.getElementById('editBg').classList.remove('open'); }
