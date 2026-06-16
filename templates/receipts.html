@@ -2,6 +2,14 @@
 {% block title %}Історія чеків — ZLAGODA{% endblock %}
 
 {% block content %}
+<style>
+  a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  .cat-filters{ align-items:flex-end; }
+  
+  /* Новий клас для червоної кнопки Скинути */
+  .btn-danger { background-color: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background-color: #c82333; color: white; border-color: #bd2130; }
+</style>
 <div class="container">
 
   <h1 class="page-title">Історія транзакцій</h1>
@@ -29,7 +37,7 @@
       {% endif %}
       
       <button type="submit" class="btn primary">Пошук</button>
-      <a href="/receipts" class="btn" style="border: 1px solid var(--line); text-decoration: none;">Скинути</a>
+      <a href="/receipts" class="btn btn-danger" style="border: 1px solid var(--line); text-decoration: none;">Скинути</a>
     </form>
   </div>
 
