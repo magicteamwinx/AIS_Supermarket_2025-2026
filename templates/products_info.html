@@ -4,6 +4,10 @@
 {% block title %}{{ "Асортимент та склад" if is_manager else "Каталог" }} — ZLAGODA{% endblock %}
 
 {% block content %}
+<style>
+  a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  .cat-filters{ align-items:flex-end; }
+</style>
 <div class="container">
 
   {% if is_manager %}
@@ -30,7 +34,7 @@
   {% if tab == 'products' %}
   {% if is_manager %}
   <details class="cat-panel">
-    <summary>+ Додати товар</summary>
+    <summary> Додати товар</summary>
     <form method="post" action="/products-info/product/add">
       <div class="cat-grid">
         <div class="field"><label>Назва</label><input type="text" name="product_name" maxlength="50" required></div>
@@ -61,13 +65,14 @@
       </select>
     </div>
     <div class="filter-item">
-      <label>Сортування</label>
+      <label>Сортувати за</label>
       <select name="sort">
-        <option value="name" {{ 'selected' if f.sort=='name' }}>за назвою</option>
-        <option value="category" {{ 'selected' if f.sort=='category' }}>за категорією</option>
+        <option value="name" {{ 'selected' if f.sort=='name' }}>Назвою</option>
+        <option value="category" {{ 'selected' if f.sort=='category' }}>Категорією</option>
       </select>
     </div>
-    <button class="btn" type="submit">Застосувати</button>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn" href="/products-info?tab=products">Скинути</a>
   </form>
 
   <table class="cat-table">
@@ -117,7 +122,7 @@
   {% if is_manager %}
   {# Форма створює ЛИШЕ звичайну позицію. Акційна робиться дією «На акцію» на рядку. #}
   <details class="cat-panel">
-    <summary>+ Виставити товар у залу</summary>
+    <summary>Виставити товар у залу</summary>
     <form method="post" action="/products-info/store-product/add">
       <div class="cat-grid">
         <div class="field">
@@ -167,18 +172,19 @@
       <label>Наявність</label>
       <select name="avail">
         <option value="all" {{ 'selected' if f.avail=='all' }}>Будь-яка</option>
-        <option value="instock" {{ 'selected' if f.avail=='instock' }}>В наявності</option>
+        <option value="instock" {{ 'selected' if f.avail=='instock' }}>Лише в наявності</option>
         <option value="out" {{ 'selected' if f.avail=='out' }}>Розкуплено</option>
       </select>
     </div>
     <div class="filter-item">
-      <label>Сортування</label>
+      <label>Сортувати за</label>
       <select name="sort">
-        <option value="quantity" {{ 'selected' if f.sort=='quantity' }}>за кількістю</option>
-        <option value="name" {{ 'selected' if f.sort=='name' }}>за назвою</option>
+        <option value="quantity" {{ 'selected' if f.sort=='quantity' }}>Кількістю</option>
+        <option value="name" {{ 'selected' if f.sort=='name' }}>Назвою</option>
       </select>
     </div>
-    <button class="btn" type="submit">Застосувати</button>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn" href="/products-info?tab=store">Скинути</a>
   </form>
 
   <table class="cat-table">
@@ -197,7 +203,7 @@
       {% for s in store %}
       <tr>
         <td class="mono">{{ s.UPC }}</td>
-        <td>{{ s.product_name }}</td>
+        <td>{{ s.product_name }}{% if is_manager and s.characteristics %}<br><span class="muted" style="font-size:12px;">{{ s.characteristics }}</span>{% endif %}</td>
         <td class="muted">{{ s.category_name }}</td>
         <td>{% if s.promotional_product %}<span class="pill pill-promo">акційний</span>{% else %}<span class="pill pill-reg">звичайний</span>{% endif %}</td>
         <td class="r">
@@ -235,7 +241,7 @@
   {# ========================= ВКЛАДКА: КАТЕГОРІЇ (М-8) ========================= #}
   {% elif tab == 'categories' and is_manager %}
   <details class="cat-panel">
-    <summary>+ Додати категорію</summary>
+    <summary>Додати категорію</summary>
     <form method="post" action="/products-info/category/add">
       <div class="cat-grid">
         <div class="field"><label>Назва категорії</label><input type="text" name="category_name" maxlength="50" required></div>
@@ -251,13 +257,14 @@
       <input type="text" name="q" value="{{ f.q }}" placeholder="Назва категорії…">
     </div>
     <div class="filter-item">
-      <label>Сортування</label>
+      <label>Сортувати за</label>
       <select name="sort">
-        <option value="name" {{ 'selected' if f.sort=='name' }}>за назвою</option>
-        <option value="number" {{ 'selected' if f.sort=='number' }}>за номером</option>
+        <option value="name" {{ 'selected' if f.sort=='name' }}>Назвою</option>
+        <option value="number" {{ 'selected' if f.sort=='number' }}>Номером</option>
       </select>
     </div>
-    <button class="btn" type="submit">Застосувати</button>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn" href="/products-info?tab=categories">Скинути</a>
   </form>
 
   <table class="cat-table">
