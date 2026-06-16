@@ -218,7 +218,8 @@ def ui_profile(
 def ui_customers(
     request: Request, 
     surname: str | None = None,
-    percent: int | None = None,
+    percent: str | None = None,
+    sort_by: str = "surname",
     current_user: dict = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db)
 ):
@@ -236,14 +237,26 @@ def ui_customers(
     if surname:
         conds.append("py_lower(cust_surname) LIKE ?")
         params.append(f"%{surname.lower()}%")
-    if percent is not None:
-        conds.append("percent = ?")
-        params.append(percent)
+
+    parsed_percent = None
+    if percent and percent.strip() != "":
+        try:
+            parsed_percent = int(percent)
+            conds.append("percent = ?")
+            params.append(parsed_percent)
+        except ValueError:
+            pass
         
     if conds:
         query += " WHERE " + " AND ".join(conds)
         
-    query += " ORDER BY cust_surname"
+    if sort_by == "card_number":
+        query += " ORDER BY card_number"
+    elif sort_by == "percent":
+        query += " ORDER BY percent DESC, cust_surname" 
+    else:
+        query += " ORDER BY cust_surname"
+
     cursor.execute(query, params)
     cards = [dict(row) for row in cursor.fetchall()]
 
@@ -254,7 +267,8 @@ def ui_customers(
             "user": current_user, 
             "cards": cards, 
             "search_surname": surname or "", 
-            "search_percent": percent or ""
+            "search_percent": percent or "",
+            "sort_by": sort_by
         }
     )
 
