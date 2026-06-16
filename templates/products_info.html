@@ -7,6 +7,10 @@
 <style>
   a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
   .cat-filters{ align-items:flex-end; }
+  
+  /* Новий клас для червоної кнопки Скинути */
+  .btn-danger { background-color: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background-color: #c82333; color: white; border-color: #bd2130; }
 </style>
 <div class="container">
 
@@ -73,7 +77,7 @@
       </select>
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
-    <a class="btn" href="/products-info?tab=products">Скинути</a>
+    <a class="btn btn-danger" href="/products-info?tab=products">Скинути</a>
   </form>
 
   <table class="cat-table">
@@ -186,7 +190,7 @@
       </select>
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
-    <a class="btn" href="/products-info?tab=store">Скинути</a>
+    <a class="btn btn-danger" href="/products-info?tab=store">Скинути</a>
   </form>
 
   <table class="cat-table">
@@ -228,7 +232,7 @@
             <button type="button" class="btn" onclick='editSP({{ s|tojson }})'>Змінити</button>
             <form method="post" action="/products-info/store-product/delete" onsubmit="return confirm('Прибрати {{ s.UPC }} із зали?')">
               <input type="hidden" name="UPC" value="{{ s.UPC }}">
-              <button type="submit" class="btn btn-del">Прибрати</button>
+              <button type="submit" class="btn btn-del", style="color: red; border-color: red; cursor: pointer;">Видалити</button>
             </form>
           </div>
         </td>
@@ -266,7 +270,7 @@
       </select>
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
-    <a class="btn" href="/products-info?tab=categories">Скинути</a>
+    <a class="btn btn-danger" href="/products-info?tab=categories">Скинути</a>
   </form>
 
   <table class="cat-table">
