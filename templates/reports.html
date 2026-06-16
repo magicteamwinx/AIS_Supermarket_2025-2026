@@ -9,6 +9,10 @@
   .report-toolbar{ display:flex; gap:10px; margin:12px 0 4px; }
   .print-only{ display:none; }
 
+  /* Новий клас для червоної кнопки Скинути */
+  .btn-danger { background-color: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background-color: #c82333; color: white; border-color: #bd2130; }
+
   @media print{
     /* ховаємо інтерфейс, лишаємо лише зміст звітів */
     .topbar, .userbox, .nav, .report-toolbar, .cat-filters, form,
@@ -42,7 +46,7 @@
   </div>
 
   <div class="report-toolbar">
-    <button type="button" class="btn primary" onclick="printAll()">🖨 Друкувати всю сторінку</button>
+    <button type="button" class="btn primary" onclick="printAll()"> Друкувати всю сторінку</button>
   </div>
 
   {% if err %}<div class="flash flash-err">{{ err }}</div>{% endif %}
@@ -50,8 +54,7 @@
   {# ═════════════ Звіт із продажів за період (М-19 / М-20) ═════════════ #}
   <section class="report-section" id="sec-sales">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">🧾 Продажі за період</h3>
-    <button type="button" class="btn no-print" onclick="printSection('sales')">🖨 Друк</button>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Продажі за період</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
     Загальна сума та кількість чеків за період — для обраного касира або для всіх (М-19, М-20).
@@ -79,17 +82,18 @@
       </select>
     </div>
     <button class="btn primary" type="submit">Сформувати</button>
+    <button type="button" class="btn no-print" onclick="printSection('sales')"> Друк</button>
   </form>
 
   {% if sales_report %}
   <div class="tiles" style="margin-top:16px;">
     <div class="tile">
-      <div class="ico">💰</div>
+      <div class="ico"></div>
       <div class="label">{{ '%.2f'|format(sales_report.total_revenue) }} ₴</div>
       <div style="font-size: 12px; color: var(--muted);">Загальна виручка</div>
     </div>
     <div class="tile">
-      <div class="ico">🧾</div>
+      <div class="ico"></div>
       <div class="label">{{ sales_report.total_checks }} шт</div>
       <div style="font-size: 12px; color: var(--muted);">Пробито чеків</div>
     </div>
@@ -103,8 +107,7 @@
   {# ═════════════ Продаж конкретного товару (М-21) ═════════════ #}
   <section class="report-section" id="sec-product">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">📦 Продаж конкретного товару</h3>
-    <button type="button" class="btn no-print" onclick="printSection('product')">🖨 Друк</button>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Продаж конкретного товару</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
     Загальна кількість одиниць обраного товару, проданого за період (М-21).
@@ -132,6 +135,7 @@
       <input type="date" name="end_date" value="{{ f.end_date if active == 'product' else '' }}" required>
     </div>
     <button class="btn primary" type="submit">Сформувати</button>
+    <button type="button" class="btn no-print" onclick="printSection('product')"> Друк</button>
   </form>
 
   {% if product_report %}
@@ -152,8 +156,7 @@
   {# ═════════════ Аналітика: дохід за категоріями (групування, параметрична) ═════════════ #}
   <section class="report-section" id="sec-cat">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">📈 Дохід за категоріями</h3>
-    <button type="button" class="btn no-print" onclick="printSection('cat')">🖨 Друк</button>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Дохід за категоріями</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
     Скільки кожна категорія товарів продала одиниць і принесла грошей. Можна обмежити періодом
@@ -176,7 +179,8 @@
       <input type="number" name="cat_min" min="0" step="0.01" value="{{ f.cat_min }}" placeholder="0">
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
-    <a class="btn" href="/reports">Скинути</a>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('cat')"> Друк</button>
   </form>
 
   {% if cat_err %}<div class="flash flash-err" style="margin-top:8px;">{{ cat_err }}</div>{% endif %}
@@ -208,8 +212,7 @@
   {# ═══ Аналітика: касири, що обслужили всіх клієнтів зі знижкою X% (подвійне заперечення) ═══ #}
   <section class="report-section" id="sec-vip">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">⭐ Касири, що обслужили всіх клієнтів зі знижкою {{ f.vip_percent }}%</h3>
-    <button type="button" class="btn no-print" onclick="printSection('vip')">🖨 Друк</button>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Касири, що обслужили всіх клієнтів зі знижкою {{ f.vip_percent }}%</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
     Касири, які пробивали чеки кожному клієнту з обраним відсотком знижки
@@ -226,7 +229,8 @@
       </select>
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
-    <a class="btn" href="/reports">Скинути</a>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('vip')"> Друк</button>
   </form>
 
   <p class="page-sub" style="margin-top:4px;">
