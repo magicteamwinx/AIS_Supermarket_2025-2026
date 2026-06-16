@@ -351,9 +351,6 @@ def create_employee(
     if age<18:
         raise HTTPException(status_code=400, detail="працівник має бути старшим за 18 років")
     
-    #перевірка, що номер телефону не складається з більш ніж 13 символів
-    #if len(employee.phone_number) > 13:
-    #    raise HTTPException(status_code=400, detail="Номер телефону не може перевищувати 13 символів")
     hashed_pwd = get_password_hash(employee.password)
     
     cursor = db.cursor()
