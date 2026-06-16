@@ -407,14 +407,12 @@
 <script>
   {% if is_manager %}
   var TAKEN = {{ taken_upcs|tojson | default('[]') }};
-
-  // Авто-генерація наступного UPC для нових товарів у залі
+  //генерація UPC для товарів
   function setNextUpc() {
     let maxNum = 0;
     TAKEN.forEach(upc => {
-      // Ігноруємо акційні UPC (які закінчуються на 'P')
       if (!upc.endsWith('P')) { 
-        let numStr = upc.replace(/\D/g, ''); // Витягуємо тільки цифри
+        let numStr = upc.replace(/\D/g, '');
         if (numStr) {
           let num = parseInt(numStr, 10);
           if (num > maxNum) maxNum = num;
@@ -422,13 +420,12 @@
       }
     });
     let nextNum = maxNum + 1;
-    let nextUpc = "UPC" + nextNum.toString().padStart(3, '0'); // Форматуємо як UPC001
+    let nextUpc = "UPC" + nextNum.toString().padStart(3, '0');
     
     let upcInput = document.getElementById('add_upc');
     if (upcInput) upcInput.value = nextUpc;
   }
   
-  // Викликаємо генерацію одразу при завантаженні сторінки
   setNextUpc();
 
   function promote(s){
@@ -439,7 +436,6 @@
     document.getElementById('pr_price_hint').textContent =
       '= ' + Number(s.selling_price).toFixed(2) + ' × 0,8 · редагувати не можна';
       
-    // ПРОСТО ДОДАЄМО "P" ДО ІСНУЮЧОГО UPC (наприклад, UPC002 -> UPC002P)
     document.getElementById('pr_newupc').value = s.UPC + 'P';
     document.getElementById('pr_submit').disabled = false;
     
