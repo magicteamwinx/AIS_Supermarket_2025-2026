@@ -268,8 +268,7 @@
   {# ═════════════ Реєстри для друку (М-4): повні переліки сутностей ═════════════ #}
   <section class="report-section" id="sec-registry">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">📋 Реєстри — {{ registries[reg] }}</h3>
-    <button type="button" class="btn no-print" onclick="printSection('registry')">🖨 Друк</button>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Реєстри — {{ registries[reg] }}</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
     Повні переліки даних для друку: працівники, постійні клієнти, категорії, товари,
@@ -286,6 +285,7 @@
       </select>
     </div>
     <button class="btn primary" type="submit">Показати</button>
+    <button type="button" class="btn no-print" onclick="printSection('registry')">Друк</button>
   </form>
 
   <p class="page-sub" style="margin-top:4px;">Записів: <strong>{{ registry_rows|length }}</strong></p>
