@@ -2,11 +2,34 @@
 {% block title %}Історія чеків — ZLAGODA{% endblock %}
 
 {% block content %}
+<style>
+  a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  .cat-filters{ align-items:flex-end; }
+  
+  /* Новий клас для червоної кнопки Скинути */
+  .btn-danger { background-color: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background-color: #c82333; color: white; border-color: #bd2130; }
+
+  .print-only{ display:none; }
+  @media print{
+    /* ховаємо навігацію, фільтри й кнопки — лишаємо лише список чеків */
+    .topbar, .no-print{ display:none !important; }
+    main{ margin:0; }
+    .container{ max-width:none; }
+    .print-only{ display:block; margin-bottom:12px; }
+    .tile{ border:1px solid #999 !important; break-inside:avoid; }
+  }
+</style>
 <div class="container">
 
   <h1 class="page-title">Історія транзакцій</h1>
-  
-  <div class="tile" style="margin-bottom: 20px;">
+
+  <div class="print-only">
+    <h2 style="margin:0;">ZLAGODA — Історія транзакцій</h2>
+    <div style="font-size:12px;color:#555;">Сформовано: <span id="print_date"></span></div>
+  </div>
+
+  <div class="tile no-print" style="margin-bottom: 20px;">
     <form action="/receipts" method="get" style="display: flex; gap: 15px; align-items: flex-end; margin: 0; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 150px;">
         <label style="font-size: 12px; color: var(--muted);">Номер чека</label>
@@ -29,7 +52,8 @@
       {% endif %}
       
       <button type="submit" class="btn primary">Пошук</button>
-      <a href="/receipts" class="btn" style="border: 1px solid var(--line); text-decoration: none;">Скинути</a>
+      <a href="/receipts" class="btn btn-danger" style="border: 1px solid var(--line); text-decoration: none;">Скинути</a>
+      <button type="button" class="btn" onclick="stampPrintDate(); window.print();" style="border: 1px solid var(--line);"> Друк</button>
     </form>
   </div>
 
@@ -44,7 +68,7 @@
         <div style="display: flex; align-items: center; gap: 15px;">
           <div style="font-size: 20px; font-weight: bold; color: var(--accent);">{{ c.sum_total }} ₴</div>
           {% if user.role == 'Менеджер' %}
-          <button onclick="deleteCheck('{{ c.check_number }}')" class="btn" style="color: red; border-color: red; padding: 4px 8px;">Видалити</button>
+          <button onclick="deleteCheck('{{ c.check_number }}')" class="btn no-print" style="color: red; border-color: red; padding: 4px 8px;">Видалити</button>
           {% endif %}
         </div>
       </div>
@@ -65,6 +89,14 @@
   </div>
 
 </div>
+
+<script>
+  // дата формування для роздруківки
+  function stampPrintDate(){
+    var el = document.getElementById('print_date');
+    if (el) el.textContent = new Date().toLocaleString('uk-UA');
+  }
+</script>
 
 {% if user.role == 'Менеджер' %}
 <script>

@@ -24,10 +24,11 @@
 
     /* друк однієї секції: ховаємо інші */
     body[data-print] .report-section{ display:none !important; }
-    body[data-print="sales"]   #sec-sales,
-    body[data-print="product"] #sec-product,
-    body[data-print="cat"]     #sec-cat,
-    body[data-print="vip"]     #sec-vip{ display:block !important; }
+    body[data-print="sales"]    #sec-sales,
+    body[data-print="product"]  #sec-product,
+    body[data-print="cat"]      #sec-cat,
+    body[data-print="vip"]      #sec-vip,
+    body[data-print="registry"] #sec-registry{ display:block !important; }
 
     .cat-table{ width:100%; border-collapse:collapse; }
     .cat-table th, .cat-table td{ border:1px solid #999 !important; padding:6px 10px; }
@@ -176,7 +177,7 @@
     </div>
     <div class="filter-item">
       <label>Мін. дохід, ₴</label>
-      <input type="number" name="cat_min" min="0" step="0.01" value="{{ f.cat_min }}" placeholder="0">
+      <input type="number" name="cat_min" min="0" step="1" value="{{ f.cat_min }}" placeholder="0">
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
     <a class="btn btn-danger" href="/reports">Скинути</a>
@@ -212,10 +213,12 @@
   {# ═══ Аналітика: касири, що обслужили всіх клієнтів зі знижкою X% (подвійне заперечення) ═══ #}
   <section class="report-section" id="sec-vip">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Касири, що обслужили всіх клієнтів зі знижкою {{ f.vip_percent }}%</h3>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Касири, що обслужили всіх клієнтів
+      {% if vip_all %}з будь-якою знижкою{% else %}зі знижкою {{ f.vip_percent }}%{% endif %}</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
-    Касири, які пробивали чеки кожному клієнту з обраним відсотком знижки
+    Касири, які пробивали чеки кожному клієнту
+    {% if vip_all %}з карткою (будь-яка знижка){% else %}з обраним відсотком знижки{% endif %}
     (тобто немає такого клієнта, якого б вони жодного разу не обслужили).
   </p>
 
@@ -223,10 +226,11 @@
     <div class="filter-item">
       <label>Відсоток знижки</label>
       <input type="number" name="vip_percent" min="0" max="100" step="1"
-             value="{{ f.vip_percent }}" list="pct_list" placeholder="напр. 20">
+             value="{{ f.vip_percent }}" list="pct_list" placeholder="усі (будь-яка знижка)">
       <datalist id="pct_list">
         {% for pct in percents %}<option value="{{ pct }}">{% endfor %}
       </datalist>
+      <span class="page-sub" style="margin:0; font-size:11px;">Порожнє поле — усі клієнти</span>
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
     <a class="btn btn-danger" href="/reports">Скинути</a>
@@ -234,7 +238,8 @@
   </form>
 
   <p class="page-sub" style="margin-top:4px;">
-    Клієнтів зі знижкою {{ f.vip_percent }}%: <strong>{{ vip_count }}</strong>
+    {% if vip_all %}Клієнтів з карткою (усього){% else %}Клієнтів зі знижкою {{ f.vip_percent }}%{% endif %}:
+    <strong>{{ vip_count }}</strong>
   </p>
 
   <table class="cat-table">
@@ -252,11 +257,125 @@
       </tr>
       {% else %}
       <tr><td colspan="2" class="cat-empty">
-        {% if vip_count == 0 %}Немає клієнтів зі знижкою {{ f.vip_percent }}%.
-        {% else %}Жоден касир не обслужив усіх клієнтів зі знижкою {{ f.vip_percent }}%.{% endif %}
+        {% if vip_count == 0 %}{% if vip_all %}Немає клієнтів із картками.{% else %}Немає клієнтів зі знижкою {{ f.vip_percent }}%.{% endif %}
+        {% else %}Жоден касир не обслужив усіх клієнтів {% if vip_all %}з будь-якою знижкою{% else %}зі знижкою {{ f.vip_percent }}%{% endif %}.{% endif %}
       </td></tr>
       {% endfor %}
     </tbody>
+  </table>
+  </section>
+
+  {# ═════════════ Реєстри для друку (М-4): повні переліки сутностей ═════════════ #}
+  <section class="report-section" id="sec-registry">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Реєстри — {{ registries[reg] }}</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Повні переліки даних для друку: працівники, постійні клієнти, категорії, товари,
+    товари у магазині, чеки (М-4).
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports">
+    <div class="filter-item">
+      <label>Реєстр</label>
+      <select name="reg" onchange="this.form.submit()">
+        {% for key, title in registries.items() %}
+        <option value="{{ key }}" {{ 'selected' if reg == key }}>{{ title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn primary" type="submit">Показати</button>
+    <button type="button" class="btn no-print" onclick="printSection('registry')">Друк</button>
+  </form>
+
+  <p class="page-sub" style="margin-top:4px;">Записів: <strong>{{ registry_rows|length }}</strong></p>
+
+  <table class="cat-table">
+    {% if reg == 'employees' %}
+    <thead><tr>
+      <th>ID</th><th>Прізвище</th><th>Ім'я</th><th>По батькові</th><th>Посада</th>
+      <th class="r">Зарплата</th><th>Дата нар.</th><th>Працює з</th><th>Телефон</th>
+      <th>Місто</th><th>Вулиця</th><th>Індекс</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.id_employee }}</td><td>{{ x.empl_surname }}</td><td>{{ x.empl_name }}</td>
+        <td>{{ x.empl_patronymic or '—' }}</td><td>{{ x.empl_role }}</td>
+        <td class="r">{{ '%.2f'|format(x.salary) }}</td><td>{{ x.date_of_birth }}</td>
+        <td>{{ x.date_of_start }}</td><td class="mono">{{ x.phone_number }}</td>
+        <td>{{ x.city }}</td><td>{{ x.street }}</td><td>{{ x.zip_code }}</td>
+      </tr>
+      {% else %}<tr><td colspan="12" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'customers' %}
+    <thead><tr>
+      <th>Картка</th><th>Прізвище</th><th>Ім'я</th><th>По батькові</th><th>Телефон</th>
+      <th>Місто</th><th>Вулиця</th><th>Індекс</th><th class="r">Знижка</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.card_number }}</td><td>{{ x.cust_surname }}</td><td>{{ x.cust_name }}</td>
+        <td>{{ x.cust_patronymic or '—' }}</td><td class="mono">{{ x.phone_number }}</td>
+        <td>{{ x.city or '—' }}</td><td>{{ x.street or '—' }}</td><td>{{ x.zip_code or '—' }}</td>
+        <td class="r">{{ x.percent }}%</td>
+      </tr>
+      {% else %}<tr><td colspan="9" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'categories' %}
+    <thead><tr><th style="width:20%">№</th><th>Назва категорії</th></tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr><td>{{ x.category_number }}</td><td>{{ x.category_name }}</td></tr>
+      {% else %}<tr><td colspan="2" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'products' %}
+    <thead><tr>
+      <th>ID</th><th>Назва</th><th>Виробник</th><th>Характеристики</th><th>Категорія</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td>{{ x.id_product }}</td><td>{{ x.product_name }}</td><td>{{ x.producer }}</td>
+        <td class="muted">{{ x.characteristics }}</td><td>{{ x.category_name }}</td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'store' %}
+    <thead><tr>
+      <th>UPC</th><th>Товар</th><th>Категорія</th><th class="r">Ціна</th>
+      <th class="r">Залишок</th><th>Тип</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.UPC }}</td><td>{{ x.product_name }}</td><td>{{ x.category_name }}</td>
+        <td class="r">{{ '%.2f'|format(x.selling_price) }} ₴</td><td class="r">{{ x.products_number }}</td>
+        <td>{{ 'акційний' if x.promotional_product else 'звичайний' }}</td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'checks' %}
+    <thead><tr>
+      <th>№ чека</th><th>Дата</th><th>Касир</th><th>Картка</th>
+      <th class="r">Сума</th><th class="r">ПДВ</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.check_number }}</td><td>{{ x.print_date }}</td><td>{{ x.empl_surname }}</td>
+        <td class="mono">{{ x.card_number or '—' }}</td>
+        <td class="r">{{ '%.2f'|format(x.sum_total) }} ₴</td><td class="r">{{ '%.2f'|format(x.vat) }} ₴</td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+    {% endif %}
   </table>
   </section>
 
