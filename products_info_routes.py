@@ -106,7 +106,7 @@ def catalog_page(
         if sort not in ("name", "category"):
             sort = "name"
         query = """
-            SELECT p.id_product, p.product_name, p.characteristics,
+            SELECT p.id_product, p.product_name, p.producer, p.characteristics,
                    p.category_number, c.category_name,
                    (SELECT COUNT(*) FROM Store_Product sp WHERE sp.id_product = p.id_product) AS hall_pos,
                    (SELECT COALESCE(SUM(products_number), 0) FROM Store_Product sp WHERE sp.id_product = p.id_product) AS hall_qty
@@ -393,6 +393,7 @@ def delete_store_product(
 def add_product(
     product_name: str = Form(...),
     category_number: int = Form(...),
+    producer: str = Form(...),
     characteristics: str = Form(...),
     current_user: dict | None = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
@@ -403,8 +404,8 @@ def add_product(
         return _redirect(err="Додавати товари може лише менеджер", tab="products")
     cursor = db.cursor()
     try:
-        cursor.execute("INSERT INTO Product (category_number, product_name, characteristics) VALUES (?, ?, ?)",
-                       (category_number, product_name, characteristics))
+        cursor.execute("INSERT INTO Product (category_number, product_name, producer, characteristics) VALUES (?, ?, ?, ?)",
+                       (category_number, product_name, producer, characteristics))
         db.commit()
         return _redirect(msg=f"Товар «{product_name}» додано", tab="products")
     except sqlite3.IntegrityError:
@@ -420,6 +421,7 @@ def update_product(
     id_product: int = Form(...),
     product_name: str = Form(...),
     category_number: int = Form(...),
+    producer: str = Form(...),
     characteristics: str = Form(...),
     current_user: dict | None = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
@@ -433,8 +435,8 @@ def update_product(
         cursor.execute("SELECT 1 FROM Product WHERE id_product = ?", (id_product,))
         if not cursor.fetchone():
             return _redirect(err="Товар не знайдено", tab="products")
-        cursor.execute("UPDATE Product SET category_number = ?, product_name = ?, characteristics = ? WHERE id_product = ?",
-                       (category_number, product_name, characteristics, id_product))
+        cursor.execute("UPDATE Product SET category_number = ?, product_name = ?, producer = ?, characteristics = ? WHERE id_product = ?",
+                       (category_number, product_name, producer, characteristics, id_product))
         db.commit()
         return _redirect(msg=f"Товар «{product_name}» оновлено", tab="products")
     except sqlite3.IntegrityError:

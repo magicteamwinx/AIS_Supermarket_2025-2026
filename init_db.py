@@ -18,6 +18,7 @@ def setup_database():
         id_product INTEGER PRIMARY KEY AUTOINCREMENT,
         category_number INTEGER NOT NULL,
         product_name VARCHAR(50) NOT NULL,
+        producer VARCHAR(50) NOT NULL,
         characteristics VARCHAR(100) NOT NULL,
         FOREIGN KEY (category_number) REFERENCES Category (category_number) ON UPDATE CASCADE ON DELETE NO ACTION
     )
@@ -107,17 +108,17 @@ def setup_database():
     """) 
 
     cursor.execute("""
-    INSERT OR IGNORE INTO Product (id_product, category_number, product_name, characteristics) VALUES 
-    (1, 1, 'Молоко 2,5%', 'ТМ Яготинське, 900г, пляшка'),
-    (2, 1, 'Сир кисломолочний', 'ТМ Простоквашино, 300г'),
-    (3, 2, 'Хліб білий', 'Київхліб, нарізний, 500г'),
-    (4, 2, 'Батон Нива', 'Київхліб, 400г'),
-    (5, 3, 'Ковбаса Лікарська', 'ТМ Глобино, варена, 500г'),
-    (6, 3, 'Сосиски Філейні', 'ТМ Бащинський, 400г'),
-    (7, 4, 'Сік яблучний', 'ТМ Сандора, 1л'),
-    (8, 4, 'Вода мінеральна', 'Моршинська, слабогазована, 1.5л'),
-    (9, 5, 'Гречка', 'ТМ Хуторок, 800г'),
-    (10, 5, 'Цукор', 'ТМ Своя Лінія, 1кг');
+    INSERT OR IGNORE INTO Product (id_product, category_number, product_name, producer, characteristics) VALUES
+    (1, 1, 'Молоко 2,5%', 'Яготинське', 'ТМ Яготинське, 900г, пляшка'),
+    (2, 1, 'Сир кисломолочний', 'Простоквашино', 'ТМ Простоквашино, 300г'),
+    (3, 2, 'Хліб білий', 'Київхліб', 'Київхліб, нарізний, 500г'),
+    (4, 2, 'Батон Нива', 'Київхліб', 'Київхліб, 400г'),
+    (5, 3, 'Ковбаса Лікарська', 'Глобино', 'ТМ Глобино, варена, 500г'),
+    (6, 3, 'Сосиски Філейні', 'Бащинський', 'ТМ Бащинський, 400г'),
+    (7, 4, 'Сік яблучний', 'Сандора', 'ТМ Сандора, 1л'),
+    (8, 4, 'Вода мінеральна', 'Моршинська', 'Моршинська, слабогазована, 1.5л'),
+    (9, 5, 'Гречка', 'Хуторок', 'ТМ Хуторок, 800г'),
+    (10, 5, 'Цукор', 'Своя Лінія', 'ТМ Своя Лінія, 1кг');
     """)
     
     manager_hash = get_password_hash("admin")

@@ -13,6 +13,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login", auto_error=False)
 class ProductCreate(BaseModel):
     category_number: int
     product_name: str
+    producer: str
     characteristics: str
 
 class EmployeeCreate(BaseModel):
@@ -262,7 +263,7 @@ def get_products(
     db.create_function("py_lower", 1, lambda x: x.lower() if x else x)
     cursor = db.cursor()
     query = """
-        SELECT p.id_product, p.product_name, p.characteristics, p.category_number, c.category_name 
+        SELECT p.id_product, p.product_name, p.producer, p.characteristics, p.category_number, c.category_name
         FROM Product p
         JOIN Category c ON p.category_number = c.category_number
     """
@@ -286,8 +287,8 @@ def create_product(product: ProductCreate, db: sqlite3.Connection = Depends(get_
     cursor = db.cursor()
     try:
         cursor.execute(
-            "INSERT INTO Product (category_number, product_name, characteristics) VALUES (?, ?, ?)", 
-            (product.category_number, product.product_name, product.characteristics)
+            "INSERT INTO Product (category_number, product_name, producer, characteristics) VALUES (?, ?, ?, ?)",
+            (product.category_number, product.product_name, product.producer, product.characteristics)
         )
         db.commit()
         return {"message": "товар додано", "id": cursor.lastrowid}
@@ -324,11 +325,11 @@ def update_product(product_id: int, product: ProductCreate, db: sqlite3.Connecti
             raise HTTPException(status_code=404, detail="товар не знайдено")
         cursor.execute(
             """
-            UPDATE Product 
-            SET category_number = ?, product_name = ?, characteristics = ?
+            UPDATE Product
+            SET category_number = ?, product_name = ?, producer = ?, characteristics = ?
             WHERE id_product = ?
-            """, 
-            (product.category_number, product.product_name, product.characteristics, product_id)
+            """,
+            (product.category_number, product.product_name, product.producer, product.characteristics, product_id)
         )
         db.commit()
         return {"message": f"товар з ID {product_id} оновлено"}

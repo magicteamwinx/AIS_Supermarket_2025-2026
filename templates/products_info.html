@@ -44,6 +44,7 @@
             {% for c in categories %}<option value="{{ c.category_number }}">{{ c.category_name }}</option>{% endfor %}
           </select>
         </div>
+        <div class="field"><label>Виробник</label><input type="text" name="producer" maxlength="50" required></div>
         <div class="field"><label>Характеристики</label><input type="text" name="characteristics" maxlength="100" required></div>
       </div>
       <div class="cat-actions"><button class="btn primary" type="submit">Додати</button></div>
@@ -78,11 +79,12 @@
   <table class="cat-table">
     <thead>
       <tr>
-        <th style="width:24%">Назва</th>
-        <th style="width:18%">Категорія</th>
-        <th style="width:28%">Характеристики</th>
-        <th style="width:14%">У залі</th>
-        {% if is_manager %}<th style="width:16%" class="r"></th>{% endif %}
+        <th style="width:20%">Назва</th>
+        <th style="width:14%">Категорія</th>
+        <th style="width:16%">Виробник</th>
+        <th style="width:24%">Характеристики</th>
+        <th style="width:12%">У залі</th>
+        {% if is_manager %}<th style="width:14%" class="r"></th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -90,6 +92,7 @@
       <tr>
         <td>{{ p.product_name }}</td>
         <td class="muted">{{ p.category_name }}</td>
+        <td class="muted">{{ p.producer }}</td>
         <td class="muted">{{ p.characteristics }}</td>
         <td>
           {% if p.hall_pos %}
@@ -110,7 +113,7 @@
         {% endif %}
       </tr>
       {% else %}
-      <tr><td colspan="{{ 5 if is_manager else 4 }}" class="cat-empty">Нічого не знайдено.</td></tr>
+      <tr><td colspan="{{ 6 if is_manager else 5 }}" class="cat-empty">Нічого не знайдено.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -367,6 +370,7 @@
             {% for c in categories %}<option value="{{ c.category_number }}">{{ c.category_name }}</option>{% endfor %}
           </select>
         </div>
+        <div class="field"><label>Виробник</label><input type="text" name="producer" id="ep_producer" maxlength="50" required></div>
         <div class="field"><label>Характеристики</label><input type="text" name="characteristics" id="ep_char" maxlength="100" required></div>
       </div>
       <div class="cat-actions">
@@ -464,6 +468,7 @@
   function editProd(p){
     document.getElementById('ep_id').value=p.id_product;
     document.getElementById('ep_name').value=p.product_name;
+    document.getElementById('ep_producer').value=p.producer;
     document.getElementById('ep_char').value=p.characteristics;
     document.getElementById('ep_cat').value=p.category_number;
     document.getElementById('editProdBg').classList.add('open');
