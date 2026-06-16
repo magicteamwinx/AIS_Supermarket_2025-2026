@@ -384,6 +384,22 @@ def ui_receipts(
         }
     )
 
+#ендпоінт для касового апарату
+@router.get("/cash-register", response_class=HTMLResponse)
+def ui_cash_register(
+    request: Request, 
+    current_user: dict = Depends(get_user_from_cookie)
+):
+    # Касовий апарат доступний ТІЛЬКИ касирам
+    if not current_user or current_user["role"] != "Касир":
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+        
+    return templates.TemplateResponse(
+        request=request, 
+        name="cash_register.html", 
+        context={"user": current_user}
+    )
+
 #ендпоінт сторінки звітів та аналітики (лише менеджер: М-19, М-20, М-21)
 @router.get("/reports", response_class=HTMLResponse)
 def ui_reports(

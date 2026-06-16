@@ -18,9 +18,8 @@
       <a href="/profile">Профіль</a>  
 
       {% if user.role == "Менеджер" %}
-        <a href="/employees">Працівники</a>
         <a href="/products-info">Асортимент та Склад</a>
-        <a href="/reports">Звіти та Аналітика</a>
+        <a href="/employees">Персонал</a>
       {% endif %}
 
       {% if user.role == "Касир" %}
@@ -28,6 +27,11 @@
       {% endif %}
 
       <a href="/customers">Клієнти</a>
+
+      {% if user.role == "Менеджер" %}
+        <a href="/reports">Звіти та Аналітика</a>
+        <a href="/receipts">Чеки</a>
+      {% endif %}
     </nav>
 
     <div class="userbox">
