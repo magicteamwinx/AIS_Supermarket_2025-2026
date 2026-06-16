@@ -192,25 +192,14 @@ def api_quick_scan(upc: str, db: sqlite3.Connection = Depends(get_db)):
 
 #ендпоінт для сторінки профіля
 @router.get("/profile", response_class=HTMLResponse)
-def ui_profile(
-    request: Request, 
-    current_user: dict = Depends(get_user_from_cookie),
-    db: sqlite3.Connection = Depends(get_db)
-):
+def ui_profile(request: Request, current_user: dict = Depends(get_user_from_cookie)):
     if not current_user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
         
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (current_user["id"],))
-    profile_data = cursor.fetchone()
-
     return templates.TemplateResponse(
         request=request, 
         name="profile.html", 
-        context={
-            "user": current_user,
-            "profile_data": profile_data
-        }
+        context={"user": current_user}
     )
 
 #ендпоінт сторінки клієнтів
@@ -326,5 +315,72 @@ def ui_employees(
             "employees": employees,
             "search_role": role or "",
             "search_surname": surname or ""
+        }
+    )
+
+#ендпоінт для сторінки чеків
+@router.get("/receipts", response_class=HTMLResponse)
+def ui_receipts(
+    request: Request,
+    check_number: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    id_employee: str | None = None,
+    current_user: dict = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db)
+):
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        
+    cursor = db.cursor()
+
+    query = 'SELECT * FROM "Check_AIS" WHERE 1=1'
+    params = []
+    
+    if check_number:
+        query += " AND check_number LIKE ?"
+        params.append(f"%{check_number}%")
+
+    if current_user["role"] == "Касир":
+        query += " AND id_employee = ?"
+        params.append(current_user["id"])
+    elif id_employee:
+        query += " AND id_employee = ?"
+        params.append(id_employee)
+        
+    if start_date and end_date:
+        query += " AND DATE(print_date) BETWEEN ? AND ?"
+        params.extend([start_date, end_date])
+    elif start_date:
+        query += " AND DATE(print_date) = ?"
+        params.append(start_date)
+        
+    query += " ORDER BY print_date DESC"
+    cursor.execute(query, params)
+    
+    raw_checks = cursor.fetchall()
+    checks_history = []
+    for c in raw_checks:
+        check_dict = dict(c) 
+        cursor.execute("""
+            SELECT p.product_name, s.product_number, s.selling_price 
+            FROM Sale s
+            JOIN Store_Product sp ON s.UPC = sp.UPC
+            JOIN Product p ON sp.id_product = p.id_product
+            WHERE s.check_number = ?
+        """, (c["check_number"],))
+        check_dict["items"] = [dict(row) for row in cursor.fetchall()]
+        checks_history.append(check_dict)
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="receipts.html", 
+        context={
+            "user": current_user, 
+            "checks": checks_history,
+            "search_check": check_number or "",
+            "start_date": start_date or "",
+            "end_date": end_date or "",
+            "search_emp": id_employee or ""
         }
     )
