@@ -413,6 +413,7 @@ def ui_reports(
     cat_to: str | None = None,
     cat_min: str | None = None,
     vip_percent: str | None = None,      # параметр аналітики «VIP-касири»
+    reg: str | None = None,              # який реєстр показати/друкувати (М-4)
     current_user: dict = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
 ):
@@ -440,12 +441,16 @@ def ui_reports(
 
     # ── Аналітика (рахується завжди, параметри мають значення за замовчуванням) ──
 
-    # Параметр відсотка знижки для VIP-аналітики (за замовчуванням 20)
-    try:
-        vip_pct = int(vip_percent) if vip_percent not in (None, "") else 20
-    except ValueError:
-        vip_pct = 20
-    vip_pct = max(0, min(100, vip_pct))  # коректний діапазон знижки 0..100
+    # Параметр відсотка знижки: порожнє поле → усі клієнти (будь-яка знижка)
+    vip_all = vip_percent in (None, "")
+    if vip_all:
+        vip_pct = None
+    else:
+        try:
+            vip_pct = int(vip_percent)
+        except ValueError:
+            vip_pct = 20
+        vip_pct = max(0, min(100, vip_pct))  # коректний діапазон знижки 0..100
     # наявні відсотки знижок — як підказки (datalist)
     cursor.execute("SELECT DISTINCT percent FROM Customer_Card ORDER BY percent DESC")
     percents = [x["percent"] for x in cursor.fetchall()]
@@ -464,30 +469,37 @@ def ui_reports(
         else:
             cat_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
 
-    # (1) Касири, які обслужили ВСІХ клієнтів зі знижкою vip_pct% — ПАРАМЕТРИЧНИЙ.
-
-    cursor.execute("SELECT COUNT(*) AS n FROM Customer_Card WHERE percent = ?", (vip_pct,))
+    # (1) Касири, які обслужили ВСІХ клієнтів — ПАРАМЕТРИЧНИЙ (подвійне заперечення).
+    #     vip_all=True  → усі клієнти з карткою (будь-яка знижка);
+    #     vip_all=False → лише клієнти зі знижкою vip_pct%.
+    if vip_all:
+        cursor.execute("SELECT COUNT(*) AS n FROM Customer_Card")
+        # WHERE-умова для підзапиту: усі картки
+        client_cond, client_params = "WHERE NOT EXISTS", []
+    else:
+        cursor.execute("SELECT COUNT(*) AS n FROM Customer_Card WHERE percent = ?", (vip_pct,))
+        client_cond, client_params = "WHERE cc.percent = ? AND NOT EXISTS", [vip_pct]
     vip_count = cursor.fetchone()["n"]
+
     if vip_count == 0:
         cashiers_all_vip = []
     else:
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT e.id_employee, e.empl_surname, e.empl_name
             FROM Employee e
             WHERE e.empl_role = 'Касир'
               AND NOT EXISTS (
                   SELECT cc.card_number
                   FROM Customer_Card cc
-                  WHERE cc.percent = ?
-                    AND NOT EXISTS (
+                  {client_cond} (
                         SELECT 1
                         FROM "Check_AIS" ch
                         WHERE ch.id_employee = e.id_employee
                           AND ch.card_number = cc.card_number
-                    )
+                  )
               )
             ORDER BY e.empl_surname, e.empl_name
-        """, (vip_pct,))
+        """, client_params)
         cashiers_all_vip = [dict(x) for x in cursor.fetchall()]
 
     # (2) Дохід за категоріями — групування, ПАРАМЕТРИЧНИЙ (період + поріг доходу).
@@ -515,6 +527,55 @@ def ui_reports(
     cat_params.append(cat_min_val)
     cursor.execute(cat_query, cat_params)
     category_revenue = [dict(x) for x in cursor.fetchall()]
+
+    # ── Реєстри для друку (М-4): повні переліки сутностей ──
+    REGISTRIES = {
+        "employees": "Працівники",
+        "customers": "Постійні клієнти",
+        "categories": "Категорії товарів",
+        "products": "Товари",
+        "store": "Товари у магазині",
+        "checks": "Чеки",
+    }
+    reg = reg if reg in REGISTRIES else "employees"
+    if reg == "employees":
+        cursor.execute("""
+            SELECT id_employee, empl_surname, empl_name, empl_patronymic, empl_role,
+                   salary, date_of_birth, date_of_start, phone_number, city, street, zip_code
+            FROM Employee ORDER BY empl_surname, empl_name
+        """)
+    elif reg == "customers":
+        cursor.execute("""
+            SELECT card_number, cust_surname, cust_name, cust_patronymic,
+                   phone_number, city, street, zip_code, percent
+            FROM Customer_Card ORDER BY cust_surname, cust_name
+        """)
+    elif reg == "categories":
+        cursor.execute("SELECT category_number, category_name FROM Category ORDER BY category_name")
+    elif reg == "products":
+        cursor.execute("""
+            SELECT p.id_product, p.product_name, p.producer, p.characteristics, c.category_name
+            FROM Product p JOIN Category c ON p.category_number = c.category_number
+            ORDER BY p.product_name
+        """)
+    elif reg == "store":
+        cursor.execute("""
+            SELECT sp.UPC, p.product_name, c.category_name, sp.selling_price,
+                   sp.products_number, sp.promotional_product
+            FROM Store_Product sp
+            JOIN Product p ON sp.id_product = p.id_product
+            JOIN Category c ON p.category_number = c.category_number
+            ORDER BY p.product_name
+        """)
+    elif reg == "checks":
+        cursor.execute("""
+            SELECT ch.check_number, ch.print_date, e.empl_surname,
+                   ch.card_number, ch.sum_total, ch.vat
+            FROM "Check_AIS" ch
+            JOIN Employee e ON ch.id_employee = e.id_employee
+            ORDER BY ch.print_date DESC
+        """)
+    registry_rows = [dict(x) for x in cursor.fetchall()]
 
     sales_report = None
     product_report = None
@@ -591,6 +652,10 @@ def ui_reports(
             "cat_err": cat_err,
             "percents": percents,
             "vip_count": vip_count,
+            "vip_all": vip_all,
+            "reg": reg,
+            "registries": REGISTRIES,
+            "registry_rows": registry_rows,
             "sales_report": sales_report,
             "product_report": product_report,
             "err": err,
@@ -602,7 +667,7 @@ def ui_reports(
                 "cat_from": cat_from or "",
                 "cat_to": cat_to or "",
                 "cat_min": cat_min or "",
-                "vip_percent": vip_pct,
+                "vip_percent": "" if vip_all else vip_pct,
             },
         },
     )
