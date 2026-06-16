@@ -143,11 +143,25 @@
   const form = document.getElementById('cardForm');
 
   //відкриття форми для створення нової картки
-  function openModal() {
+  async function openModal() {
     form.reset();
     document.getElementById('formMode').value = 'create';
-    document.getElementById('modalTitle').innerText = 'Нова картка лояльності';
-    document.getElementById('m_card_number').readOnly = false;
+    document.getElementById('modalTitle').innerText = 'Нова картка клієнта';
+    
+    const idInput = document.getElementById('m_card_number'); 
+    
+    idInput.readOnly = true; 
+    idInput.style.backgroundColor = '#f3f4f6'; 
+    idInput.value = 'Генерація...'; 
+    
+    try {
+      const response = await fetch('/api/next-card-id');
+      const data = await response.json();
+      idInput.value = data.next_id;
+    } catch (e) {
+      idInput.value = 'Помилка генерації';
+    }
+    
     modal.style.display = 'flex';
   }
 
@@ -157,6 +171,7 @@
     document.getElementById('modalTitle').innerText = `Редагування картки ${card.card_number}`;
     document.getElementById('m_card_number').value = card.card_number;
     document.getElementById('m_card_number').readOnly = true;
+    document.getElementById('m_card_number').style.backgroundColor = '#f3f4f6';
     document.getElementById('m_surname').value = card.cust_surname;
     document.getElementById('m_name').value = card.cust_name;
     document.getElementById('m_patronymic').value = card.cust_patronymic || '';

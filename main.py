@@ -167,6 +167,27 @@ def get_next_check_id(db: sqlite3.Connection = Depends(get_db)):
         return {"next_id": f"CHK{next_num:03d}"} # Наприклад: CHK00015
     return {"next_id": "CHK00001"}
 
+#api-ендпоінт для отримання ключа при створенні карти клієнта
+@app.get("/api/next-card-id")
+def get_next_card_id(db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT card_number FROM Customer_Card ORDER BY card_number DESC LIMIT 1")
+    result = cursor.fetchone()
+    
+    if result and result["card_number"]:
+        last_id = result["card_number"]
+        num_str = "".join(filter(str.isdigit, last_id))
+        
+        if num_str:
+            next_num = int(num_str) + 1
+            next_id = f"CARD{next_num:03d}" 
+        else:
+            next_id = "CARD001"
+    else:
+        next_id = "CARD001"
+        
+    return {"next_id": next_id}
+
 #права доступу
 
 #чи дійсний токен
