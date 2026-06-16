@@ -26,8 +26,8 @@
       </div>
       <div style="width: 220px;">
         <label style="font-size: 12px; color: var(--muted);">Сортувати за</label>
-        <select name="sort_by" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
-          <option value="surname" {% if sort_by == 'surname' %}selected{% endif %}>Прізвищем</option>
+        <select name="sort_by" onchange="this.form.submit()" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+          <option value="surname" {% if sort_by == 'surname' %}selected{% endif %}>Прізвищем (А-Я)</option>
           <option value="card_number" {% if sort_by == 'card_number' %}selected{% endif %}>Номером картки</option>
           <option value="percent" {% if sort_by == 'percent' %}selected{% endif %}>Розміром знижки (макс ➔ мін)</option>
         </select>

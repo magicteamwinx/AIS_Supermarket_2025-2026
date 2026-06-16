@@ -313,7 +313,8 @@ def ui_employees(
             "user": current_user, 
             "employees": employees,
             "search_role": role or "",
-            "search_surname": surname or ""
+            "search_surname": surname or "",
+            "sort_by": sort_by
         }
     )
 
