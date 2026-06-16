@@ -216,6 +216,9 @@ def add_store_product(
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     if current_user["role"] != "Менеджер":
         return _redirect(err="Виставляти товар у залу може лише менеджер")
+    UPC = UPC.strip()
+    if not (1 <= len(UPC) <= 12):
+        return _redirect(err="UPC має містити від 1 до 12 символів")
     if selling_price < 0 or products_number < 0:
         return _redirect(err="Ціна та кількість не можуть бути від'ємними")
 
@@ -251,6 +254,9 @@ def promote_store_product(
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     if current_user["role"] != "Менеджер":
         return _redirect(err="Створювати акційну позицію може лише менеджер")
+    UPC = UPC.strip()
+    if not (1 <= len(UPC) <= 12):
+        return _redirect(err="UPC акційного має містити від 1 до 12 символів")
     if products_number < 0:
         return _redirect(err="Кількість не може бути від'ємною")
 
