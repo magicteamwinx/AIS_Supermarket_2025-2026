@@ -142,23 +142,21 @@
   const modal = document.getElementById('cardModal');
   const form = document.getElementById('cardForm');
 
-  // Відкриття форми (для створення НОВОЇ картки)
+  //відкриття форми для створення нової картки
   function openModal() {
-    form.reset(); // Очищаємо всі поля
+    form.reset();
     document.getElementById('formMode').value = 'create';
     document.getElementById('modalTitle').innerText = 'Нова картка лояльності';
-    document.getElementById('m_card_number').readOnly = false; // Дозволяємо вводити номер
+    document.getElementById('m_card_number').readOnly = false;
     modal.style.display = 'flex';
   }
 
-  // Відкриття форми (для РЕДАГУВАННЯ існуючої)
+  //відкриття форми для редагування картки
   function editCard(card) {
     document.getElementById('formMode').value = 'update';
     document.getElementById('modalTitle').innerText = `Редагування картки ${card.card_number}`;
-    
-    // Заповнюємо поля даними клієнта
     document.getElementById('m_card_number').value = card.card_number;
-    document.getElementById('m_card_number').readOnly = true; // Забороняємо міняти первинний ключ!
+    document.getElementById('m_card_number').readOnly = true;
     document.getElementById('m_surname').value = card.cust_surname;
     document.getElementById('m_name').value = card.cust_name;
     document.getElementById('m_patronymic').value = card.cust_patronymic || '';
@@ -171,19 +169,18 @@
     modal.style.display = 'flex';
   }
 
-  // Закриття форми
+  //закриття форми
   function closeModal() {
     modal.style.display = 'none';
   }
 
-  // ЗБЕРЕЖЕННЯ ДАНИХ (Викликає твій бекенд!)
+  //збереження карти
   async function saveCard(event) {
-    event.preventDefault(); // Зупиняємо стандартне перезавантаження
+    event.preventDefault();
     
     const mode = document.getElementById('formMode').value;
     const cardNumber = document.getElementById('m_card_number').value;
     
-    // Збираємо дані в об'єкт, який чекає твій Pydantic (CustomerCardCreate / CustomerCardUpdate)
     const payload = {
       card_number: cardNumber,
       cust_surname: document.getElementById('m_surname').value,
@@ -196,7 +193,6 @@
       zip_code: document.getElementById('m_zip').value
     };
 
-    // Визначаємо метод і URL залежно від того, чи ми створюємо, чи оновлюємо
     const url = mode === 'create' ? '/customer-cards' : `/customer-cards/${cardNumber}`;
     const method = mode === 'create' ? 'POST' : 'PUT';
 
@@ -204,13 +200,13 @@
       const response = await fetch(url, {
         method: method,
         headers: {
-          'Content-Type': 'application/json' // Кажемо FastAPI, що це JSON
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
 
       if (response.ok) {
-        window.location.reload(); // Успіх! Оновлюємо сторінку, щоб побачити нові дані
+        window.location.reload();
       } else {
         const error = await response.json();
         alert('Помилка: ' + error.detail);
@@ -220,7 +216,7 @@
     }
   }
 
-  // Видалення (Вже було)
+  //видалення карти
   async function deleteCard(cardNumber) {
     if (!confirm(`Ви впевнені, що хочете видалити картку ${cardNumber}?`)) return;
     try {
