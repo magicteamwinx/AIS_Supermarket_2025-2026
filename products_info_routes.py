@@ -319,10 +319,19 @@ def update_store_product(
             return _redirect(err="Позицію в залі не знайдено")
 
         if row["promotional_product"]:
-            # ціна — похідна від батьківської звичайної; кількість незалежна
-            cursor.execute("SELECT selling_price FROM Store_Product WHERE UPC_prom = ?", (UPC,))
+            # ціна — похідна від батьківської звичайної; різниця кількості переноситься з/у звичайну
+            cursor.execute("SELECT UPC, selling_price, products_number FROM Store_Product WHERE UPC_prom = ?", (UPC,))
             parent = cursor.fetchone()
-            price = _promo_price(parent["selling_price"]) if parent else selling_price
+            if parent:
+                price = _promo_price(parent["selling_price"])
+                delta = products_number - row["products_number"]  # +на акцію / −повертаємо
+                if delta > parent["products_number"]:
+                    return _redirect(
+                        err=f"Недостатньо одиниць у звичайній позиції для перенесення (доступно: {parent['products_number']})")
+                cursor.execute("UPDATE Store_Product SET products_number = products_number - ? WHERE UPC = ?",
+                               (delta, parent["UPC"]))
+            else:
+                price = selling_price  # «висяча» акційна без пари — кількість незалежна
             cursor.execute("UPDATE Store_Product SET selling_price = ?, products_number = ? WHERE UPC = ?",
                            (price, products_number, UPC))
         else:
@@ -358,8 +367,10 @@ def delete_store_product(
             return _redirect(err="Позицію в залі не знайдено")
 
         if row["promotional_product"]:
-            # лише обнуляємо посилання у звичайної пари; кількість НЕ повертаємо (списується)
-            cursor.execute("UPDATE Store_Product SET UPC_prom = NULL WHERE UPC_prom = ?", (UPC,))
+            # повертаємо одиниці назад у звичайну пару та обнуляємо посилання
+            cursor.execute(
+                "UPDATE Store_Product SET UPC_prom = NULL, products_number = products_number + ? WHERE UPC_prom = ?",
+                (row["products_number"], UPC))
             cursor.execute("DELETE FROM Store_Product WHERE UPC = ?", (UPC,))
         else:
             if row["UPC_prom"]:
