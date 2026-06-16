@@ -60,6 +60,10 @@
   
   <div class="tile" style="margin-bottom: 20px;">
     <form action="/receipts" method="get" style="display: flex; gap: 15px; align-items: flex-end; margin: 0;">
+      <div style="flex: 1; min-width: 150px;">
+        <label style="font-size: 12px; color: var(--muted);">Номер чека</label>
+        <input type="text" name="check_number" value="{{ search_check }}" placeholder="Напр. 15 або CHK001" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+      </div>
       <div>
         <label style="font-size: 12px; color: var(--muted);">З дати</label>
         <input type="date" name="start_date" value="{{ start_date }}" style="padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -76,7 +80,7 @@
       </div>
       {% endif %}
       
-      <button type="submit" class="btn primary">Фільтрувати</button>
+      <button type="submit" class="btn primary">Пошук</button>
       <a href="/receipts" class="btn" style="border: 1px solid var(--line);">Скинути</a>
     </form>
   </div>
@@ -92,7 +96,7 @@
         <div style="display: flex; align-items: center; gap: 15px;">
           <div style="font-size: 20px; font-weight: bold; color: var(--accent);">{{ c.sum_total }} ₴</div>
           {% if user.role == 'Менеджер' %}
-          <button onclick="deleteCheck('{{ c.check_number }}')" class="btn" style="color: red; border-color: red; padding: 4px 8px;">🗑️ Видалити</button>
+          <button onclick="deleteCheck('{{ c.check_number }}')" class="btn" style="color: red; border-color: red; padding: 4px 8px;">Видалити</button>
           {% endif %}
         </div>
       </div>
@@ -118,7 +122,6 @@
 <script>
   let cart = [];
 
-  // Завантажуємо новий ID чека при відкритті сторінки
   window.onload = async () => {
     try {
       const res = await fetch('/api/next-check-id');
@@ -129,14 +132,13 @@
     }
   };
 
-  // Додавання товару в кошик
+  //додавання товару в кошик
   async function scanItem(e) {
     e.preventDefault();
     const upcInput = document.getElementById('upcInput');
     const upc = upcInput.value.trim();
     if (!upc) return;
 
-    // Перевіряємо, чи є такий товар вже в кошику
     const existingItem = cart.find(i => i.UPC === upc);
     if (existingItem) {
       if (existingItem.qty < existingItem.stock) {
@@ -149,9 +151,7 @@
       return;
     }
 
-    // Якщо товару в кошику немає, запитуємо базу
     try {
-      // Використовуємо твій існуючий API-швидкий сканер!
       const response = await fetch(`/api/quick-scan/${upc}`);
       if (!response.ok) {
         alert(`Товар зі штрих-кодом ${upc} не знайдено!`);
@@ -181,21 +181,20 @@
     }
   }
 
-  // Оновлення кількості товару
+  //оновлення кількості товару
   function changeQty(index, delta) {
     const item = cart[index];
     const newQty = item.qty + delta;
     if (newQty > 0 && newQty <= item.stock) {
       item.qty = newQty;
     } else if (newQty === 0) {
-      cart.splice(index, 1); // Видаляємо товар, якщо кількість 0
+      cart.splice(index, 1);
     } else {
       alert(`Максимальна кількість на складі: ${item.stock} шт.`);
     }
     renderCart();
   }
 
-  // Відмальовування кошика та суми
   function renderCart() {
     const tbody = document.getElementById('cartBody');
     let html = '';
@@ -236,7 +235,7 @@
     document.getElementById('cartTotal').innerText = total.toFixed(2) + ' ₴';
   }
 
-  // Фінальне пробиття чеку (POST-запит)
+  //фінальне пробиття чеку (POST-запит)
   async function checkout() {
     if (cart.length === 0) {
       alert("Додайте товари у кошик!");
@@ -263,7 +262,7 @@
       
       if (response.ok) {
         alert(`Чек успішно створено!\nСума до сплати: ${data.sum_total} ₴`);
-        window.location.reload(); // Перезавантажуємо сторінку для очищення каси
+        window.location.reload();
       } else {
         let errorMsg = data.detail;
         if (Array.isArray(data.detail)) {

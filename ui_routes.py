@@ -321,7 +321,8 @@ def ui_employees(
 #ендпоінт для сторінки чеків
 @router.get("/receipts", response_class=HTMLResponse)
 def ui_receipts(
-    request: Request, 
+    request: Request,
+    check_number: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
     id_employee: str | None = None,
@@ -332,12 +333,14 @@ def ui_receipts(
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
         
     cursor = db.cursor()
-    
-    # 1. Формуємо запит для історії чеків
+
     query = 'SELECT * FROM "Check_AIS" WHERE 1=1'
     params = []
     
-    # Касир бачить тільки своє, Менеджер може шукати по всіх
+    if check_number:
+        query += " AND check_number LIKE ?"
+        params.append(f"%{check_number}%")
+
     if current_user["role"] == "Касир":
         query += " AND id_employee = ?"
         params.append(current_user["id"])
@@ -355,7 +358,6 @@ def ui_receipts(
     query += " ORDER BY print_date DESC"
     cursor.execute(query, params)
     
-    # Збираємо чеки та їхні товари (щоб красиво вивести в таблиці)
     raw_checks = cursor.fetchall()
     checks_history = []
     for c in raw_checks:
@@ -376,6 +378,7 @@ def ui_receipts(
         context={
             "user": current_user, 
             "checks": checks_history,
+            "search_check": check_number or "",
             "start_date": start_date or "",
             "end_date": end_date or "",
             "search_emp": id_employee or ""
