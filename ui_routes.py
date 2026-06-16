@@ -271,10 +271,10 @@ def ui_employees(
     current_user: dict = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db)
 ):
-    # Тільки менеджер має сюди доступ
     if not current_user or current_user["role"] != "Менеджер":
         return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
-        
+
+    db.create_function("py_lower", 1, lambda x: x.lower() if x else x)   
     cursor = db.cursor()
     query = """
         SELECT id_employee, empl_surname, empl_name, empl_patronymic, 
@@ -289,7 +289,7 @@ def ui_employees(
         conds.append("empl_role = ?")
         params.append(role)
     if surname:
-        conds.append("empl_surname LIKE ?")
+        conds.append("py_lower(empl_surname) LIKE ?")
         params.append(f"{surname}%")
         
     if conds:
@@ -304,7 +304,6 @@ def ui_employees(
         
     cursor.execute(query, params)
     
-    # Перетворюємо Row на словники для Jinja2
     employees = [dict(row) for row in cursor.fetchall()]
 
     return templates.TemplateResponse(
