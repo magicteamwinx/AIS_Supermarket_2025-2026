@@ -127,8 +127,9 @@ def catalog_page(
         products = [dict(r) for r in cursor.fetchall()]
 
     elif tab == "store":
+        # М-10: менеджеру за замовчуванням сортуємо за кількістю; К-2: касиру — за назвою
         if sort not in ("quantity", "name"):
-            sort = "name"
+            sort = "quantity" if is_manager else "name"
         query = """
             SELECT sp.UPC, sp.UPC_prom, sp.id_product, sp.selling_price,
                    sp.products_number, sp.promotional_product,
@@ -181,9 +182,6 @@ def catalog_page(
         query += " ORDER BY category_number" if sort == "number" else " ORDER BY category_name"
         cursor.execute(query, params)
         cat_rows = [dict(r) for r in cursor.fetchall()]
-
-    if sort is None:
-        sort = "quantity"
 
     return templates.TemplateResponse(
         request=request,
