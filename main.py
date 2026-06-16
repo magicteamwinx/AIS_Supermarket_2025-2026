@@ -36,7 +36,7 @@ class CheckItem(BaseModel):
 
 class CheckCreate(BaseModel):
     check_number: str
-    card_number: str = None
+    card_number: str | None = None
     items: list[CheckItem]
 
 class CustomerCardCreate(BaseModel):
@@ -107,26 +107,6 @@ class CategoryCreate(BaseModel):
 def read_root():
     return {"message": "працює..."}
 
-#авторизація
-@app.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (form_data.username,))
-    user = cursor.fetchone()
-    
-    if not user or not verify_password(form_data.password, user["password_hash"]):
-        raise HTTPException(
-            status_code=400, 
-            detail="Неправильний ID працівника або пароль",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    access_token = create_access_token(
-        data={"sub": user["id_employee"], "role": user["empl_role"]}
-    )
-    #юзер буде мати токен що згорає за годину
-    return {"access_token": access_token, "token_type": "bearer"}
-
 #api-ендпоінт авторизації
 @app.post("/api/login")
 def api_login(
@@ -134,12 +114,9 @@ def api_login(
     db: sqlite3.Connection = Depends(get_db)
 ):
     cursor = db.cursor()
-    # form_data.username — це стандартна назва поля у Swagger, 
-    # туди потраплятиме твій id_employee (наприклад, EMP001)
     cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (form_data.username,))
     user = cursor.fetchone()
     
-    # Перевіряємо користувача та його пароль
     if not user or not verify_password(form_data.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
@@ -147,13 +124,47 @@ def api_login(
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    # Генеруємо токен доступу
     access_token = create_access_token(
         data={"sub": user["id_employee"], "role": user["empl_role"]}
     )
     
-    # Swagger очікує саме таку відповідь із двома полями
     return {"access_token": access_token, "token_type": "bearer"}
+
+#api-ендпоінт для отримання ключа при створенні працівника
+@app.get("/api/next-employee-id")
+def get_next_emp_id(db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT id_employee FROM Employee ORDER BY id_employee DESC LIMIT 1")
+    result = cursor.fetchone()
+    
+    if result and result["id_employee"]:
+        last_id = result["id_employee"]
+        
+        num_str = "".join(filter(str.isdigit, last_id))
+        
+        if num_str:
+            next_num = int(num_str) + 1
+            next_id = f"EMP{next_num:03d}" 
+        else:
+            next_id = "EMP001"
+    else:
+        next_id = "EMP001"
+        
+    return {"next_id": next_id}
+
+#api-ендпоінт для отримання ключа при створенні чека
+@app.get("/api/next-check-id")
+def get_next_check_id(db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute('SELECT check_number FROM "Check_AIS" ORDER BY check_number DESC LIMIT 1')
+    result = cursor.fetchone()
+    
+    if result and result["check_number"]:
+        last_id = result["check_number"]
+        num_str = "".join(filter(str.isdigit, last_id))
+        next_num = int(num_str) + 1 if num_str else 1
+        return {"next_id": f"CHK{next_num:03d}"} # Наприклад: CHK00015
+    return {"next_id": "CHK00001"}
 
 #права доступу
 
@@ -202,6 +213,27 @@ def get_current_cashier(current_user: dict = Depends(get_current_user)):
             detail="доступ має лише касир"
         )
     return current_user
+
+#авторизація
+@app.post("/login")
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (form_data.username,))
+    user = cursor.fetchone()
+    
+    if not user or not verify_password(form_data.password, user["password_hash"]):
+        raise HTTPException(
+            status_code=400, 
+            detail="Неправильний ID працівника або пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    access_token = create_access_token(
+        data={"sub": user["id_employee"], "role": user["empl_role"]}
+    )
+    #юзер буде мати токен що згорає за годину
+    return {"access_token": access_token, "token_type": "bearer"}
+
 #всі категорії
 @app.get("/categories")
 def get_categories(db: sqlite3.Connection = Depends(get_db)):
@@ -376,8 +408,8 @@ def create_employee(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"помилка: {str(e)}")
+    
 #дії з чеками
-
 @app.post("/checks")
 def create_check(
     check_data: CheckCreate, 
@@ -428,7 +460,7 @@ def create_check(
         cursor.execute("""
             INSERT INTO "Check_AIS" (check_number, id_employee, card_number, print_date, sum_total, vat)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (check_data.check_number, current_user["id_employee"], check_data.card_number, print_date, sum_total, vat))
+        """, (check_data.check_number, current_user["id"], check_data.card_number, print_date, sum_total, vat))
         
         for item in items_to_process:
             #продаж певного товару
@@ -789,28 +821,6 @@ def get_employees(
     cursor.execute(query, params)
     return cursor.fetchall()
 
-#api-ендпоінт для отримання наступного ключа при створенні працівника
-@app.get("/api/next-employee-id")
-def get_next_emp_id(db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute("SELECT id_employee FROM Employee ORDER BY id_employee DESC LIMIT 1")
-    result = cursor.fetchone()
-    
-    if result and result["id_employee"]:
-        last_id = result["id_employee"]
-        
-        num_str = "".join(filter(str.isdigit, last_id))
-        
-        if num_str:
-            next_num = int(num_str) + 1
-            next_id = f"EMP{next_num:03d}" 
-        else:
-            next_id = "EMP001"
-    else:
-        next_id = "EMP001"
-        
-    return {"next_id": next_id}
-
 #інформація про себе
 @app.get("/employees/me")
 def get_current_employee_info(
@@ -818,13 +828,14 @@ def get_current_employee_info(
     current_user: dict = Depends(get_current_user)
 ):
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (current_user["id_employee"],))
+    cursor.execute("SELECT * FROM Employee WHERE id_employee = ?", (current_user["id"],))
     user_data = cursor.fetchone()
     if not user_data:
         raise HTTPException(status_code=404, detail="працівника не знайдено")
         
     return user_data
 
+#інформація про всі чеки
 @app.get("/checks")
 def get_checks(
     start_date: str | None = None, #формат YYYY-MM-DD
