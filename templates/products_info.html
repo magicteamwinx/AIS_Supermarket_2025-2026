@@ -135,9 +135,8 @@
           </select>
         </div>
         <div class="field">
-          <label>UPC (до 12 символів)</label>
-          <input type="text" name="UPC" id="add_upc" maxlength="12" required>
-          <span class="upc-warn" id="add_upc_warn"></span>
+          <label>UPC (Автоматично)</label>
+          <input type="text" name="UPC" id="add_upc" required readonly style="background: #f3f4f6; color: #6b7280; font-family: monospace; border: 1px solid var(--line);">
         </div>
         <div class="field"><label>Ціна продажу</label><input type="number" name="selling_price" step="0.01" min="0" required></div>
         <div class="field"><label>Кількість одиниць</label><input type="number" name="products_number" min="0" value="0" required></div>
@@ -313,9 +312,8 @@
           <span class="page-sub" id="pr_price_hint" style="margin:0"></span>
         </div>
         <div class="field">
-          <label>UPC акційного</label>
-          <input type="text" name="UPC" id="pr_newupc" maxlength="12" required>
-          <span class="upc-warn" id="pr_upc_warn"></span>
+          <label>UPC акційного (Автоматично)</label>
+          <input type="text" name="UPC" id="pr_newupc" required readonly style="background: #f3f4f6; color: #6b7280; font-family: monospace; border: 1px solid var(--line);">
         </div>
         <div class="field">
           <label>Кількість одиниць на акцію</label>
@@ -404,23 +402,30 @@
 
 <script>
   {% if is_manager %}
-  var TAKEN = {{ taken_upcs|tojson }};
+  var TAKEN = {{ taken_upcs|tojson | default('[]') }};
 
-  function _checkUpc(inp, warn, submit){
-    var v = (inp.value || '').trim();
-    var taken = !!v && TAKEN.indexOf(v) !== -1;
-    warn.textContent = taken ? 'Цей UPC вже зайнятий — оберіть інший' : '';
-    if (submit) submit.disabled = taken;
-    return !taken;
+  // Авто-генерація наступного UPC для нових товарів у залі
+  function setNextUpc() {
+    let maxNum = 0;
+    TAKEN.forEach(upc => {
+      // Ігноруємо акційні UPC (які закінчуються на 'P')
+      if (!upc.endsWith('P')) { 
+        let numStr = upc.replace(/\D/g, ''); // Витягуємо тільки цифри
+        if (numStr) {
+          let num = parseInt(numStr, 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    });
+    let nextNum = maxNum + 1;
+    let nextUpc = "UPC" + nextNum.toString().padStart(3, '0'); // Форматуємо як UPC001
+    
+    let upcInput = document.getElementById('add_upc');
+    if (upcInput) upcInput.value = nextUpc;
   }
-  function bindUpc(inpId, warnId, submitId){
-    var inp = document.getElementById(inpId);
-    if (!inp) return;
-    var warn = document.getElementById(warnId), submit = document.getElementById(submitId);
-    inp.addEventListener('input', function(){ _checkUpc(inp, warn, submit); });
-  }
-  bindUpc('add_upc', 'add_upc_warn', 'add_submit');
-  bindUpc('pr_newupc', 'pr_upc_warn', 'pr_submit');
+  
+  // Викликаємо генерацію одразу при завантаженні сторінки
+  setNextUpc();
 
   function promote(s){
     document.getElementById('pr_upc').value = s.UPC;
@@ -429,11 +434,11 @@
     document.getElementById('pr_price_v').value = (Number(s.selling_price) * 0.8).toFixed(2) + ' ₴';
     document.getElementById('pr_price_hint').textContent =
       '= ' + Number(s.selling_price).toFixed(2) + ' × 0,8 · редагувати не можна';
-    // автопідказка вільного UPC (можна змінити вручну)
-    document.getElementById('pr_newupc').value = s.suggest_prom || (s.UPC + 'P');
-    document.getElementById('pr_upc_warn').textContent = '';
+      
+    // ПРОСТО ДОДАЄМО "P" ДО ІСНУЮЧОГО UPC (наприклад, UPC002 -> UPC002P)
+    document.getElementById('pr_newupc').value = s.UPC + 'P';
     document.getElementById('pr_submit').disabled = false;
-    // кількість переноситься зі звичайної — не більше наявного залишку
+    
     var qty = document.getElementById('pr_qty');
     qty.value = 0; qty.max = s.products_number;
     document.getElementById('pr_qty_hint').textContent = 'доступно ' + s.products_number + ' шт (перенесеться зі звичайної)';
