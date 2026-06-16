@@ -111,7 +111,7 @@
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-        <div><label style="font-size: 12px; color: var(--muted);">Телефон *</label><input type="text" id="m_phone" required style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
+        <div><label style="font-size: 12px; color: var(--muted);">Телефон *</label><input type="text" id="m_phone" required maxlength="13" placeholder="+380..." style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
         
         <div class="create-only"><label style="font-size: 12px; color: var(--muted);">Дата народження *</label><input type="date" id="m_dob" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
         <div class="create-only"><label style="font-size: 12px; color: var(--muted);">Дата початку *</label><input type="date" id="m_start" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);"></div>
@@ -142,15 +142,25 @@
   const modal = document.getElementById('empModal');
   const form = document.getElementById('empForm');
 
-  function openModal() {
+  async function openModal() {
     form.reset();
     document.getElementById('formMode').value = 'create';
     document.getElementById('modalTitle').innerText = 'Найняти працівника';
-    document.getElementById('m_id').readOnly = false;
-    document.getElementById('m_password').required = true;
-    document.getElementById('pwdHint').style.display = 'none';
+    document.getElementById('m_phone').value = '+380'
     
-    // Показуємо поля дат і пароля, робимо їх обов'язковими
+    const idInput = document.getElementById('m_id');
+    idInput.readOnly = true; 
+    idInput.style.backgroundColor = '#f3f4f6';
+    idInput.value = 'Генерація...';
+    
+    try {
+      const response = await fetch('/api/next-employee-id');
+      const data = await response.json();
+      idInput.value = data.next_id;
+    } catch (e) {
+      idInput.value = 'Помилка генерації';
+    }
+    
     document.querySelectorAll('.create-only').forEach(el => {
       el.style.display = 'block';
       el.querySelector('input').required = true;
@@ -163,7 +173,8 @@
     document.getElementById('modalTitle').innerText = `Редагування працівника ${emp.id_employee}`;
     
     document.getElementById('m_id').value = emp.id_employee;
-    document.getElementById('m_id').readOnly = true; 
+    document.getElementById('m_id').readOnly = true;
+    document.getElementById('m_id').style.backgroundColor = '#f3f4f6';
     document.getElementById('m_role').value = emp.empl_role;
     document.getElementById('m_salary').value = emp.salary;
     document.getElementById('m_surname').value = emp.empl_surname;
@@ -174,8 +185,8 @@
     document.getElementById('m_street').value = emp.street;
     document.getElementById('m_zip').value = emp.zip_code;
     document.getElementById('m_password').required = false;
-    document.getElementById('pwdHint').style.display = 'inline';
     document.getElementById('m_password').value = '';
+    document.getElementById('pwdHint').style.display = 'inline';
     
     document.querySelectorAll('.create-only').forEach(el => {
       el.style.display = 'none';

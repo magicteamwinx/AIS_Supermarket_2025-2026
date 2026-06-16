@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from jose import JWTError, jwt
 from security import SECRET_KEY, ALGORITHM
 from datetime import date, datetime
@@ -24,7 +24,7 @@ class EmployeeCreate(BaseModel):
     salary: float
     date_of_birth: date
     date_of_start: date
-    phone_number: str
+    phone_number: str = Field(..., max_length=13)
     city: str
     street: str
     zip_code: str
@@ -44,7 +44,7 @@ class CustomerCardCreate(BaseModel):
     cust_surname: str
     cust_name: str
     cust_patronymic: str = None
-    phone_number: str
+    phone_number: str = Field(..., max_length=13)
     city: str = None
     street: str = None
     zip_code: str = None
@@ -350,6 +350,7 @@ def create_employee(
     age = today.year - employee.date_of_birth.year - ((today.month, today.day) < (employee.date_of_birth.month, employee.date_of_birth.day))
     if age<18:
         raise HTTPException(status_code=400, detail="працівник має бути старшим за 18 років")
+    
     hashed_pwd = get_password_hash(employee.password)
     
     cursor = db.cursor()
@@ -753,6 +754,7 @@ def delete_check(check_number: str, db: sqlite3.Connection = Depends(get_db), cu
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    
 #інформація про працівників (менеджер)
 @app.get("/employees")
 def get_employees(
@@ -786,6 +788,28 @@ def get_employees(
     query += " ORDER BY empl_surname"
     cursor.execute(query, params)
     return cursor.fetchall()
+
+#api-ендпоінт для отримання наступного ключа при створенні працівника
+@app.get("/api/next-employee-id")
+def get_next_emp_id(db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT id_employee FROM Employee ORDER BY id_employee DESC LIMIT 1")
+    result = cursor.fetchone()
+    
+    if result and result["id_employee"]:
+        last_id = result["id_employee"]
+        
+        num_str = "".join(filter(str.isdigit, last_id))
+        
+        if num_str:
+            next_num = int(num_str) + 1
+            next_id = f"EMP{next_num:03d}" 
+        else:
+            next_id = "EMP001"
+    else:
+        next_id = "EMP001"
+        
+    return {"next_id": next_id}
 
 #інформація про себе
 @app.get("/employees/me")
