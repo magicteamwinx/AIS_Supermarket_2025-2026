@@ -373,14 +373,223 @@ def ui_receipts(
         checks_history.append(check_dict)
 
     return templates.TemplateResponse(
-        request=request, 
-        name="receipts.html", 
+        request=request,
+        name="receipts.html",
         context={
-            "user": current_user, 
+            "user": current_user,
             "checks": checks_history,
             "search_check": check_number or "",
             "start_date": start_date or "",
             "end_date": end_date or "",
             "search_emp": id_employee or ""
         }
+    )
+
+#ендпоінт сторінки звітів та аналітики (лише менеджер: М-19, М-20, М-21)
+@router.get("/reports", response_class=HTMLResponse)
+def ui_reports(
+    request: Request,
+    r: str | None = None,                # який звіт рахуємо: "sales" | "product"
+    start_date: str | None = None,
+    end_date: str | None = None,
+    id_employee: str | None = None,      # для звіту з продажів (необов'язково)
+    upc: str | None = None,              # для звіту по товару
+    cat_from: str | None = None,         # параметри аналітики «дохід за категоріями»
+    cat_to: str | None = None,
+    cat_min: str | None = None,
+    vip_percent: str | None = None,      # параметр аналітики «VIP-касири»
+    current_user: dict = Depends(get_user_from_cookie),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    # Звіти — функція менеджера
+    if not current_user or current_user["role"] != "Менеджер":
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+
+    cursor = db.cursor()
+
+    # довідники для зручних випадайок (без ручного вводу кодів)
+    cursor.execute("""
+        SELECT id_employee, empl_surname, empl_name
+        FROM Employee WHERE empl_role = 'Касир'
+        ORDER BY empl_surname, empl_name
+    """)
+    cashiers = [dict(x) for x in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT sp.UPC, p.product_name, sp.promotional_product
+        FROM Store_Product sp
+        JOIN Product p ON sp.id_product = p.id_product
+        ORDER BY p.product_name
+    """)
+    store_products = [dict(x) for x in cursor.fetchall()]
+
+    # ── Аналітика (рахується завжди, параметри мають значення за замовчуванням) ──
+
+    # Параметр відсотка знижки для VIP-аналітики (за замовчуванням 20)
+    try:
+        vip_pct = int(vip_percent) if vip_percent not in (None, "") else 20
+    except ValueError:
+        vip_pct = 20
+    # доступні відсотки знижок для випадайки
+    cursor.execute("SELECT DISTINCT percent FROM Customer_Card ORDER BY percent DESC")
+    percents = [x["percent"] for x in cursor.fetchall()]
+
+    # Поріг доходу (HAVING) для аналітики за категоріями (за замовчуванням 0)
+    try:
+        cat_min_val = float(cat_min) if cat_min not in (None, "") else 0.0
+    except ValueError:
+        cat_min_val = 0.0
+    # Валідація періоду: дата «від» не може бути пізнішою за «до»
+    cat_err = None
+    cat_period_on = False
+    if cat_from and cat_to:
+        if cat_from <= cat_to:
+            cat_period_on = True
+        else:
+            cat_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
+
+    # (1) Касири, які обслужили ВСІХ клієнтів зі знижкою vip_pct% — ПАРАМЕТРИЧНИЙ.
+    #     Подвійне заперечення: немає такого клієнта, якого цей касир жодного разу не обслужив.
+    #     Багатотабличний (3 таблиці): Employee, Customer_Card, Check_AIS.
+    #     Якщо клієнтів цієї категорії немає — внутрішня умова виконалась би «порожньо»
+    #     (вакуумна істина повернула б усіх касирів), тож явно показуємо порожній результат.
+    cursor.execute("SELECT COUNT(*) AS n FROM Customer_Card WHERE percent = ?", (vip_pct,))
+    vip_count = cursor.fetchone()["n"]
+    if vip_count == 0:
+        cashiers_all_vip = []
+    else:
+        cursor.execute("""
+            SELECT e.id_employee, e.empl_surname, e.empl_name
+            FROM Employee e
+            WHERE e.empl_role = 'Касир'
+              AND NOT EXISTS (
+                  SELECT cc.card_number
+                  FROM Customer_Card cc
+                  WHERE cc.percent = ?
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM "Check_AIS" ch
+                        WHERE ch.id_employee = e.id_employee
+                          AND ch.card_number = cc.card_number
+                    )
+              )
+            ORDER BY e.empl_surname, e.empl_name
+        """, (vip_pct,))
+        cashiers_all_vip = [dict(x) for x in cursor.fetchall()]
+
+    # (2) Дохід за категоріями — групування, ПАРАМЕТРИЧНИЙ (період + поріг доходу).
+    #     Багатотабличний (5 таблиць): Category, Product, Store_Product, Sale, Check_AIS.
+    cat_query = """
+        SELECT c.category_name,
+               COUNT(DISTINCT p.id_product) AS unique_products,
+               SUM(s.product_number) AS total_units,
+               SUM(s.product_number * s.selling_price) AS total_revenue
+        FROM Category c
+        JOIN Product p ON c.category_number = p.category_number
+        JOIN Store_Product sp ON p.id_product = sp.id_product
+        JOIN Sale s ON sp.UPC = s.UPC
+        JOIN "Check_AIS" ch ON s.check_number = ch.check_number
+    """
+    cat_params = []
+    if cat_period_on:
+        cat_query += " WHERE DATE(ch.print_date) BETWEEN ? AND ?"
+        cat_params += [cat_from, cat_to]
+    cat_query += """
+        GROUP BY c.category_number, c.category_name
+        HAVING SUM(s.product_number * s.selling_price) >= ?
+        ORDER BY total_revenue DESC
+    """
+    cat_params.append(cat_min_val)
+    cursor.execute(cat_query, cat_params)
+    category_revenue = [dict(x) for x in cursor.fetchall()]
+
+    sales_report = None
+    product_report = None
+    err = None
+
+    def _valid_period(s, e):
+        return bool(s) and bool(e) and s <= e
+
+    # ── Звіт із продажів за період (М-19 / М-20) — логіка /reports/sales ──
+    if r == "sales":
+        if not _valid_period(start_date, end_date):
+            err = "Вкажіть коректний період (дата початку не пізніша за дату кінця)"
+        else:
+            query = """
+                SELECT COUNT(check_number) AS total_checks,
+                       COALESCE(SUM(sum_total), 0) AS total_sales_sum
+                FROM "Check_AIS"
+                WHERE DATE(print_date) BETWEEN ? AND ?
+            """
+            params = [start_date, end_date]
+            if id_employee:
+                query += " AND id_employee = ?"
+                params.append(id_employee)
+            cursor.execute(query, params)
+            res = cursor.fetchone()
+            emp_label = "усі касири"
+            if id_employee:
+                cursor.execute("SELECT empl_surname, empl_name FROM Employee WHERE id_employee = ?", (id_employee,))
+                e = cursor.fetchone()
+                emp_label = f"{e['empl_surname']} {e['empl_name']}" if e else id_employee
+            sales_report = {
+                "employee": emp_label,
+                "period": f"{start_date} — {end_date}",
+                "total_checks": res["total_checks"] or 0,
+                "total_revenue": round(res["total_sales_sum"], 2),
+            }
+
+    # ── Продаж конкретного товару за період (М-21) — логіка /reports/product-sales ──
+    elif r == "product":
+        if not upc:
+            err = "Оберіть товар (UPC)"
+        elif not _valid_period(start_date, end_date):
+            err = "Вкажіть коректний період (дата початку не пізніша за дату кінця)"
+        else:
+            cursor.execute("""
+                SELECT COALESCE(SUM(s.product_number), 0) AS total_sold
+                FROM Sale s
+                JOIN "Check_AIS" c ON s.check_number = c.check_number
+                WHERE s.UPC = ? AND DATE(c.print_date) BETWEEN ? AND ?
+            """, (upc, start_date, end_date))
+            total_sold = cursor.fetchone()["total_sold"]
+            cursor.execute("""
+                SELECT p.product_name FROM Store_Product sp
+                JOIN Product p ON sp.id_product = p.id_product WHERE sp.UPC = ?
+            """, (upc,))
+            pn = cursor.fetchone()
+            product_report = {
+                "upc": upc,
+                "product_name": pn["product_name"] if pn else "—",
+                "period": f"{start_date} — {end_date}",
+                "total_units": total_sold,
+            }
+
+    return templates.TemplateResponse(
+        request=request,
+        name="reports.html",
+        context={
+            "user": current_user,
+            "active": r,
+            "cashiers": cashiers,
+            "store_products": store_products,
+            "cashiers_all_vip": cashiers_all_vip,
+            "category_revenue": category_revenue,
+            "cat_err": cat_err,
+            "percents": percents,
+            "vip_count": vip_count,
+            "sales_report": sales_report,
+            "product_report": product_report,
+            "err": err,
+            "f": {
+                "start_date": start_date or "",
+                "end_date": end_date or "",
+                "id_employee": id_employee or "",
+                "upc": upc or "",
+                "cat_from": cat_from or "",
+                "cat_to": cat_to or "",
+                "cat_min": cat_min or "",
+                "vip_percent": vip_pct,
+            },
+        },
     )
