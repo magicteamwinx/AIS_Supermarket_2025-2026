@@ -429,7 +429,8 @@ def ui_reports(
         vip_pct = int(vip_percent) if vip_percent not in (None, "") else 20
     except ValueError:
         vip_pct = 20
-    # доступні відсотки знижок для випадайки
+    vip_pct = max(0, min(100, vip_pct))  # коректний діапазон знижки 0..100
+    # наявні відсотки знижок — як підказки (datalist)
     cursor.execute("SELECT DISTINCT percent FROM Customer_Card ORDER BY percent DESC")
     percents = [x["percent"] for x in cursor.fetchall()]
 

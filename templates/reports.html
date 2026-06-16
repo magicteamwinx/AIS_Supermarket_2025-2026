@@ -222,11 +222,11 @@
   <form class="cat-filters" method="get" action="/reports">
     <div class="filter-item">
       <label>Відсоток знижки</label>
-      <select name="vip_percent">
-        {% for pct in percents %}
-        <option value="{{ pct }}" {{ 'selected' if f.vip_percent == pct }}>{{ pct }}%</option>
-        {% endfor %}
-      </select>
+      <input type="number" name="vip_percent" min="0" max="100" step="1"
+             value="{{ f.vip_percent }}" list="pct_list" placeholder="напр. 20">
+      <datalist id="pct_list">
+        {% for pct in percents %}<option value="{{ pct }}">{% endfor %}
+      </datalist>
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
     <a class="btn btn-danger" href="/reports">Скинути</a>
