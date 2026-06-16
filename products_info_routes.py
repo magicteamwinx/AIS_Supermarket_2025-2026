@@ -91,7 +91,12 @@ def catalog_page(
     cursor.execute("SELECT category_number, category_name FROM Category ORDER BY category_name")
     categories = [dict(r) for r in cursor.fetchall()]
 
-    cursor.execute("SELECT id_product, product_name FROM Product ORDER BY product_name")
+    cursor.execute("""
+        SELECT p.id_product, p.product_name
+        FROM Product p
+        JOIN Category c ON p.category_number = c.category_number
+        ORDER BY p.product_name
+    """)
     all_products = cursor.fetchall()
 
     products, store, cat_rows = [], [], []
@@ -519,6 +524,9 @@ def delete_category(
         cursor.execute("SELECT 1 FROM Category WHERE category_number = ?", (category_number,))
         if not cursor.fetchone():
             return _redirect(err="Категорію не знайдено", tab="categories")
+        cursor.execute("SELECT 1 FROM Product WHERE category_number = ?", (category_number,))
+        if cursor.fetchone():
+            return _redirect(err="Не можна видалити: у категорії є товари", tab="categories")
         cursor.execute("DELETE FROM Category WHERE category_number = ?", (category_number,))
         db.commit()
         return _redirect(msg="Категорію видалено", tab="categories")
