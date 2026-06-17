@@ -656,15 +656,22 @@ def ui_reports(
         
     au_query += """
             GROUP BY e.id_employee, e.empl_surname, e.empl_name, c.category_number, c.category_name
-        ),
-        RankedSales AS (
-            SELECT *,
-                   ROW_NUMBER() OVER (PARTITION BY category_number ORDER BY revenue DESC) as rank_num
-            FROM CategorySales
         )
-        SELECT * FROM RankedSales
-        WHERE rank_num = 1
-        ORDER BY category_name
+        SELECT 
+            cs.category_name,
+            cs.empl_surname,
+            cs.empl_name,
+            cs.checks_cnt,
+            cs.units,
+            cs.revenue
+        FROM CategorySales cs
+        JOIN (
+            SELECT category_number, MAX(revenue) AS max_revenue
+            FROM CategorySales
+            GROUP BY category_number
+        ) max_res ON cs.category_number = max_res.category_number 
+                 AND cs.revenue = max_res.max_revenue
+        ORDER BY cs.category_name
     """
     
     cursor.execute(au_query, au_params)
