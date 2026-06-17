@@ -192,19 +192,19 @@
   <table class="cat-table">
     <thead>
       <tr>
-        <th style="width:34%">Категорія</th>
-        <th style="width:22%" class="r">Унікальних товарів</th>
-        <th style="width:22%" class="r">Продано одиниць</th>
-        <th style="width:22%" class="r">Загальний дохід</th>
+        <th style="width:34%; text-align: left;">Категорія</th>
+        <th style="width:22%; text-align: center;" class="r">Унікальних товарів</th>
+        <th style="width:22%; text-align: center;" class="r">Продано одиниць</th>
+        <th style="width:22%; text-align: right;" class="r">Загальний дохід</th>
       </tr>
     </thead>
     <tbody>
       {% for c in category_revenue %}
       <tr>
-        <td>{{ c.category_name }}</td>
-        <td class="r">{{ c.unique_products }}</td>
-        <td class="r">{{ c.total_units }}</td>
-        <td class="r"><strong>{{ '%.2f'|format(c.total_revenue) }} ₴</strong></td>
+        <td style="text-align: left;">{{ c.category_name }}</td>
+        <td class="r"; style="text-align: center;">{{ c.unique_products }}</td>
+        <td class="r"; style="text-align: center;">{{ c.total_units }}</td>
+        <td class="r"; style="text-align: right;"><strong>{{ '%.2f'|format(c.total_revenue) }} ₴</strong></td>
       </tr>
       {% else %}
       <tr><td colspan="4" class="cat-empty">Ще немає продажів.</td></tr>
@@ -311,8 +311,8 @@
         <th style="width:14%">ID касира</th>
         <th style="width:28%">Касир</th>
         <th style="width:24%">Категорія</th>
-        <th style="width:16%" class="r">Продано одиниць</th>
-        <th style="width:18%" class="r">Сума</th>
+        <th style="width:16%; text-align: center;" >Продано одиниць</th>
+        <th style="width:18%; text-align: right;">Сума</th>
       </tr>
     </thead>
     <tbody>
@@ -321,8 +321,8 @@
         <td class="mono">{{ x.id_employee }}</td>
         <td>{{ x.empl_surname }} {{ x.empl_name }}</td>
         <td class="muted">{{ x.category_name }}</td>
-        <td class="r">{{ x.units }}</td>
-        <td class="r"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
+        <td style="text-align: center;">{{ x.units }}</td>
+        <td style="text-align: right;"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
       </tr>
       {% else %}
       <tr><td colspan="5" class="cat-empty">Немає продажів за заданими умовами.</td></tr>
@@ -417,24 +417,24 @@
   <table class="cat-table">
     <thead>
       <tr>
-        <th style="width:26%">Категорія</th>
-        <th style="width:24%">Найкращий касир</th>
-        <th style="width:16%" class="r">Чеків</th>
-        <th style="width:16%" class="r">Одиниць</th>
-        <th style="width:18%" class="r">Виручка</th>
+        <th style="width:26%; text-align: left;">Категорія</th>
+        <th style="width:18%; text-align: left;">Найкращий касир</th>
+        <th style="width:22%; text-align: center;">Чеків</th>
+        <th style="width:22%; text-align: center;">Одиниць</th>
+        <th style="width:22%; text-align: right;">Виручка</th>
       </tr>
     </thead>
     <tbody>
       {% for x in cashier_audit %}
       <tr>
-        <td class="muted">{{ x.category_name }}</td>
-        <td><strong>{{ x.empl_surname }} {{ x.empl_name }}</strong></td>
-        <td class="r">{{ x.checks_cnt }}</td>
-        <td class="r">{{ x.units }}</td>
-        <td class="r"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
+        <td style="text-align: left;">{{ x.category_name }}</td>
+        <td style="text-align: left;"><strong>{{ x.empl_surname }} {{ x.empl_name }}</strong></td>
+        <td style="text-align: center;">{{ x.checks_cnt }}</td>
+        <td style="text-align: center;">{{ x.units }}</td>
+        <td style="text-align: right;"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="cat-empty">Немає продажів за заданими умовами.</td></tr>
+      <tr><td colspan="5" class="cat-empty" style="text-align: center;">Немає продажів за заданими умовами.</td></tr>
       {% endfor %}
     </tbody>
   </table>
