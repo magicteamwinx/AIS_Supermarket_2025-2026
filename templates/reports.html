@@ -30,6 +30,8 @@
     body[data-print="vip"]      #sec-vip,
     body[data-print="catsales"] #sec-catsales,
     body[data-print="allcat"]   #sec-allcat,
+    body[data-print="audit"]    #sec-audit,
+    body[data-print="ideal"]    #sec-ideal,
     body[data-print="registry"] #sec-registry{ display:block !important; }
 
     .cat-table{ width:100%; border-collapse:collapse; }
@@ -378,6 +380,113 @@
   </table>
   </section>
 
+  {# ═══════ Аудит продажів за касиром і категорією (групування, параметрична) ═══════ #}
+  <section class="report-section" id="sec-audit">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Аудит: хто найкраще продає категорію</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Зведена таблиця: який касир продає найбільше товарів певної категорії (виручка, к-сть чеків,
+    одиниці). Сортування за виручкою. Можна обмежити категорією та періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return auCheckDates(this)">
+    <div class="filter-item">
+      <label>Категорія</label>
+      <select name="au_cat">
+        <option value="">Усі категорії</option>
+        {% for c in categories_list %}
+        <option value="{{ c.category_number }}" {{ 'selected' if f.au_cat == c.category_number }}>{{ c.category_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="au_from" name="au_from" value="{{ f.au_from }}" max="{{ f.au_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="au_to" name="au_to" value="{{ f.au_to }}" min="{{ f.au_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('audit')">Друк</button>
+  </form>
+
+  {% if au_err %}<div class="flash flash-err" style="margin-top:8px;">{{ au_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:26%">Касир</th>
+        <th style="width:24%">Категорія</th>
+        <th style="width:16%" class="r">Чеків</th>
+        <th style="width:16%" class="r">Одиниць</th>
+        <th style="width:18%" class="r">Виручка</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in cashier_audit %}
+      <tr>
+        <td>{{ x.empl_surname }} {{ x.empl_name }}</td>
+        <td class="muted">{{ x.category_name }}</td>
+        <td class="r">{{ x.checks_cnt }}</td>
+        <td class="r">{{ x.units }}</td>
+        <td class="r"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="cat-empty">Немає продажів за заданими умовами.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
+  {# ═══════ «Ідеальні» категорії: усі товари продано (подвійне заперечення, параметрична) ═══════ #}
+  <section class="report-section" id="sec-ideal">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Категорії без «мертвого вантажу»</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Категорії, у яких кожен наявний товар було продано хоча б раз
+    (немає жодного товару категорії, який ніколи не продавався). Можна обмежити періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return icCheckDates(this)">
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="ic_from" name="ic_from" value="{{ f.ic_from }}" max="{{ f.ic_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="ic_to" name="ic_to" value="{{ f.ic_to }}" min="{{ f.ic_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('ideal')">Друк</button>
+  </form>
+
+  {% if ic_err %}<div class="flash flash-err" style="margin-top:8px;">{{ ic_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:20%">№</th>
+        <th>Категорія</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in ideal_categories %}
+      <tr>
+        <td>{{ x.category_number }}</td>
+        <td>{{ x.category_name }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="cat-empty">Немає категорій, де всі товари продано.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
   {# ═════════════ Реєстри для друку (М-4): повні переліки сутностей ═════════════ #}
   <section class="report-section" id="sec-registry">
   <div class="sec-head">
@@ -520,6 +629,8 @@
   }
   function gCheckDates(form){ return _checkRange(form.g_from.value, form.g_to.value); }
   function acCheckDates(form){ return _checkRange(form.ac_from.value, form.ac_to.value); }
+  function auCheckDates(form){ return _checkRange(form.au_from.value, form.au_to.value); }
+  function icCheckDates(form){ return _checkRange(form.ic_from.value, form.ic_to.value); }
 
   // Друк: усієї сторінки або окремої секції (через @media print)
   function stampPrintDate(){

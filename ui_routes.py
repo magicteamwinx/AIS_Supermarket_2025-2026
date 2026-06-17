@@ -420,6 +420,11 @@ def ui_reports(
     g_emp: str | None = None,
     ac_from: str | None = None,          # клієнти, що купували в усіх категоріях: період
     ac_to: str | None = None,
+    au_cat: str | None = None,           # аудит продажів касирами: категорія + період
+    au_from: str | None = None,
+    au_to: str | None = None,
+    ic_from: str | None = None,          # «ідеальні» категорії (усі товари продано): період
+    ic_to: str | None = None,
     reg: str | None = None,              # який реєстр показати/друкувати (М-4)
     current_user: dict = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
@@ -610,6 +615,85 @@ def ui_reports(
     cursor.execute("SELECT COUNT(*) AS n FROM Category")
     total_categories = cursor.fetchone()["n"]
 
+    # список категорій для випадайки (аудит)
+    cursor.execute("SELECT category_number, category_name FROM Category ORDER BY category_name")
+    categories_list = [dict(x) for x in cursor.fetchall()]
+
+    # (5) Аудит продажів за касиром і категорією — ГРУПУВАННЯ, ПАРАМЕТРИЧНИЙ (категорія + період).
+    #     Багатотабличний (6 таблиць): Employee, Check_AIS, Sale, Store_Product, Product, Category.
+    #     Хто з касирів найкраще продає товари певної категорії (виручка, к-сть чеків, одиниці).
+    au_err = None
+    au_period_on = False
+    if au_from and au_to:
+        if au_from <= au_to:
+            au_period_on = True
+        else:
+            au_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
+    au_cat_id = int(au_cat) if (au_cat and au_cat.strip().isdigit()) else None
+    au_query = """
+        SELECT e.empl_surname, e.empl_name, c.category_name,
+               COUNT(DISTINCT ch.check_number) AS checks_cnt,
+               SUM(s.product_number) AS units,
+               SUM(s.product_number * s.selling_price) AS revenue
+        FROM Employee e
+        JOIN "Check_AIS" ch ON e.id_employee = ch.id_employee
+        JOIN Sale s ON ch.check_number = s.check_number
+        JOIN Store_Product sp ON s.UPC = sp.UPC
+        JOIN Product p ON sp.id_product = p.id_product
+        JOIN Category c ON p.category_number = c.category_number
+        WHERE e.empl_role = 'Касир'
+    """
+    au_params = []
+    if au_cat_id:
+        au_query += " AND p.category_number = ?"
+        au_params.append(au_cat_id)
+    if au_period_on:
+        au_query += " AND DATE(ch.print_date) BETWEEN ? AND ?"
+        au_params += [au_from, au_to]
+    au_query += """
+        GROUP BY e.id_employee, e.empl_surname, c.category_number, c.category_name
+        ORDER BY revenue DESC, e.empl_surname
+    """
+    cursor.execute(au_query, au_params)
+    cashier_audit = [dict(x) for x in cursor.fetchall()]
+
+    # (6) «Ідеальні» категорії: усі базові товари категорії продано хоча б раз —
+    #     ПОДВІЙНЕ ЗАПЕРЕЧЕННЯ, ПАРАМЕТРИЧНИЙ (період). Багатотабличний:
+    #     Category, Product, Store_Product, Sale, Check_AIS.
+    #     Немає жодного товару категорії, який ніколи не продавався.
+    ic_err = None
+    ic_period_on = False
+    if ic_from and ic_to:
+        if ic_from <= ic_to:
+            ic_period_on = True
+        else:
+            ic_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
+    ic_date_cond = ""
+    ic_params = []
+    if ic_period_on:
+        ic_date_cond = """
+                  JOIN "Check_AIS" ch ON s.check_number = ch.check_number
+                  AND DATE(ch.print_date) BETWEEN ? AND ?"""
+        ic_params = [ic_from, ic_to]
+    cursor.execute(f"""
+        SELECT c.category_number, c.category_name
+        FROM Category c
+        WHERE EXISTS (SELECT 1 FROM Product p0 WHERE p0.category_number = c.category_number)
+          AND NOT EXISTS (
+            SELECT p.id_product
+            FROM Product p
+            WHERE p.category_number = c.category_number
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM Store_Product sp
+                  JOIN Sale s ON sp.UPC = s.UPC{ic_date_cond}
+                  WHERE sp.id_product = p.id_product
+              )
+        )
+        ORDER BY c.category_name
+    """, ic_params)
+    ideal_categories = [dict(x) for x in cursor.fetchall()]
+
     # ── Реєстри для друку (М-4): повні переліки сутностей ──
     REGISTRIES = {
         "employees": "Працівники",
@@ -740,6 +824,11 @@ def ui_reports(
             "customers_all_cat": customers_all_cat,
             "ac_err": ac_err,
             "total_categories": total_categories,
+            "categories_list": categories_list,
+            "cashier_audit": cashier_audit,
+            "au_err": au_err,
+            "ideal_categories": ideal_categories,
+            "ic_err": ic_err,
             "reg": reg,
             "registries": REGISTRIES,
             "registry_rows": registry_rows,
@@ -760,6 +849,11 @@ def ui_reports(
                 "g_emp": g_emp or "",
                 "ac_from": ac_from or "",
                 "ac_to": ac_to or "",
+                "au_cat": au_cat_id,
+                "au_from": au_from or "",
+                "au_to": au_to or "",
+                "ic_from": ic_from or "",
+                "ic_to": ic_to or "",
             },
         },
     )
