@@ -127,6 +127,7 @@ uvicorn main:app --reload
 ## Структура проєкту
 
 \`\`\`text
+
 AIS_Supermarket_2025-2026/
 ├── main.py             # Точка входу FastAPI, підключення роутерів
 ├── database.py         # Підключення до SQLite
