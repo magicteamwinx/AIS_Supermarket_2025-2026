@@ -126,17 +126,17 @@ uvicorn main:app --reload
 
 ## Структура проєкту
  
-\`\`\`text
+```text
 AIS_Supermarket_2025-2026/
-├── main.py             # Точка входу FastAPI, підключення роутерів
-├── database.py         # Підключення до SQLite
-├── init_db.py          # Створення схеми та тестових даних
-├── security.py         # Хешування паролів, перевірка JWT
-├── ui_routes.py        # Маршрути сторінок інтерфейсу
-├── requirements.txt    # Залежності
-├── templates/          # HTML-шаблони (Jinja2)
-└── static/             # CSS, іконки, зображення
-\`\`\`
+├── main.py           # Точка входу FastAPI, підключення роутерів
+├── database.py       # Підключення до SQLite
+├── init_db.py        # Створення схеми та тестових даних
+├── security.py       # Хешування паролів, перевірка JWT
+├── ui_routes.py      # Маршрути сторінок інтерфейсу
+├── requirements.txt  # Залежності
+├── templates/        # HTML-шаблони (Jinja2)
+└── static/           # CSS, іконки, зображення
+```
 
 База даних `zlagoda.db` та `venv/` не зберігаються в репозиторії —
 БД генерується локально через `python init_db.py`.
