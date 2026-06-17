@@ -332,6 +332,7 @@ def ui_receipts(
     if not current_user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
         
+    db.create_function("py_lower", 1, lambda x: x.lower() if x else x)
     cursor = db.cursor()
 
     query = 'SELECT * FROM "Check_AIS" WHERE 1=1'
@@ -345,8 +346,8 @@ def ui_receipts(
         query += " AND id_employee = ?"
         params.append(current_user["id"])
     elif id_employee:
-        query += " AND id_employee = ?"
-        params.append(id_employee)
+        query += " AND py_lower(id_employee) LIKE ?"
+        params.append(f"%{id_employee.lower()}%")
         
     if start_date and end_date:
         query += " AND DATE(print_date) BETWEEN ? AND ?"

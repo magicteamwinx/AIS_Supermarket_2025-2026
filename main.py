@@ -875,11 +875,18 @@ def get_checks(
     if id_employee:
         id_employee = id_employee.strip()
         if id_employee in ["string", "", "null", "undefined"]: id_employee = None
+
+    db.create_function("py_lower", 1, lambda x: x.lower() if x else x)
     cursor = db.cursor()
     
     #касир бачить тільки свої чеки
     if current_user["role"] == "Касир":
-        id_employee = current_user["id_employee"]
+        query += " AND id_employee = ?"
+        params.append(current_user["id"])
+    elif id_employee:
+        query += " AND py_lower(id_employee) LIKE ?"
+        params.append(f"%{id_employee.lower()}%")
+
     query = "SELECT * FROM Check_AIS WHERE 1=1"
     params = []
     #фільтр по датах
@@ -890,7 +897,6 @@ def get_checks(
         #якщо тільки дата початку, то виведе лише чеки за цей день
         query += " AND DATE(print_date) = ?"
         params.append(start_date)
-    #фільтр по ID касира (менеджер)
     if id_employee:
         query += " AND id_employee = ?"
         params.append(id_employee)
