@@ -121,7 +121,7 @@ def setup_database():
     (10, 5, 'Цукор', 'Своя Лінія', 'ТМ Своя Лінія, 1кг');
     """)
     
-    manager_hash = get_password_hash("ADMIN")
+    manager_hash = get_password_hash("admin")
     cashier_hash = get_password_hash("1234")
     pass1 = get_password_hash("maramel/$$$")
     pass2 = get_password_hash("bonda356")
