@@ -24,10 +24,15 @@
 
     /* друк однієї секції: ховаємо інші */
     body[data-print] .report-section{ display:none !important; }
-    body[data-print="sales"]   #sec-sales,
-    body[data-print="product"] #sec-product,
-    body[data-print="cat"]     #sec-cat,
-    body[data-print="vip"]     #sec-vip{ display:block !important; }
+    body[data-print="sales"]    #sec-sales,
+    body[data-print="product"]  #sec-product,
+    body[data-print="cat"]      #sec-cat,
+    body[data-print="vip"]      #sec-vip,
+    body[data-print="catsales"] #sec-catsales,
+    body[data-print="allcat"]   #sec-allcat,
+    body[data-print="audit"]    #sec-audit,
+    body[data-print="ideal"]    #sec-ideal,
+    body[data-print="registry"] #sec-registry{ display:block !important; }
 
     .cat-table{ width:100%; border-collapse:collapse; }
     .cat-table th, .cat-table td{ border:1px solid #999 !important; padding:6px 10px; }
@@ -51,13 +56,13 @@
 
   {% if err %}<div class="flash flash-err">{{ err }}</div>{% endif %}
 
-  {# ═════════════ Звіт із продажів за період (М-19 / М-20) ═════════════ #}
+  {# ═════════════ Звіт із продажів за період  ═════════════ #}
   <section class="report-section" id="sec-sales">
   <div class="sec-head">
     <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Продажі за період</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
-    Загальна сума та кількість чеків за період — для обраного касира або для всіх (М-19, М-20).
+    Загальна сума та кількість чеків за період — для обраного касира або для всіх.
   </p>
 
   <form class="cat-filters" method="get" action="/reports">
@@ -104,13 +109,13 @@
   {% endif %}
   </section>
 
-  {# ═════════════ Продаж конкретного товару (М-21) ═════════════ #}
+  {# ═════════════ Продаж конкретного товару  ═════════════ #}
   <section class="report-section" id="sec-product">
   <div class="sec-head">
     <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Продаж конкретного товару</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
-    Загальна кількість одиниць обраного товару, проданого за період (М-21).
+    Загальна кількість одиниць обраного товару, проданого за період .
   </p>
 
   <form class="cat-filters" method="get" action="/reports">
@@ -141,7 +146,6 @@
   {% if product_report %}
   <div class="tiles" style="margin-top:16px;">
     <div class="tile">
-      <div class="ico">📊</div>
       <div class="label">{{ product_report.total_units }} шт</div>
       <div style="font-size: 12px; color: var(--muted);">Продано одиниць</div>
     </div>
@@ -176,7 +180,7 @@
     </div>
     <div class="filter-item">
       <label>Мін. дохід, ₴</label>
-      <input type="number" name="cat_min" min="0" step="0.01" value="{{ f.cat_min }}" placeholder="0">
+      <input type="number" name="cat_min" min="0" step="1" value="{{ f.cat_min }}" placeholder="0">
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
     <a class="btn btn-danger" href="/reports">Скинути</a>
@@ -188,19 +192,19 @@
   <table class="cat-table">
     <thead>
       <tr>
-        <th style="width:34%">Категорія</th>
-        <th style="width:22%" class="r">Унікальних товарів</th>
-        <th style="width:22%" class="r">Продано одиниць</th>
-        <th style="width:22%" class="r">Загальний дохід</th>
+        <th style="width:34%; text-align: left;">Категорія</th>
+        <th style="width:22%; text-align: center;" class="r">Унікальних товарів</th>
+        <th style="width:22%; text-align: center;" class="r">Продано одиниць</th>
+        <th style="width:22%; text-align: right;" class="r">Загальний дохід</th>
       </tr>
     </thead>
     <tbody>
       {% for c in category_revenue %}
       <tr>
-        <td>{{ c.category_name }}</td>
-        <td class="r">{{ c.unique_products }}</td>
-        <td class="r">{{ c.total_units }}</td>
-        <td class="r"><strong>{{ '%.2f'|format(c.total_revenue) }} ₴</strong></td>
+        <td style="text-align: left;">{{ c.category_name }}</td>
+        <td class="r"; style="text-align: center;">{{ c.unique_products }}</td>
+        <td class="r"; style="text-align: center;">{{ c.total_units }}</td>
+        <td class="r"; style="text-align: right;"><strong>{{ '%.2f'|format(c.total_revenue) }} ₴</strong></td>
       </tr>
       {% else %}
       <tr><td colspan="4" class="cat-empty">Ще немає продажів.</td></tr>
@@ -212,10 +216,12 @@
   {# ═══ Аналітика: касири, що обслужили всіх клієнтів зі знижкою X% (подвійне заперечення) ═══ #}
   <section class="report-section" id="sec-vip">
   <div class="sec-head">
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Касири, що обслужили всіх клієнтів зі знижкою {{ f.vip_percent }}%</h3>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Касири, що обслужили всіх клієнтів
+      {% if vip_all %}з будь-якою знижкою{% else %}зі знижкою {{ f.vip_percent }}%{% endif %}</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
-    Касири, які пробивали чеки кожному клієнту з обраним відсотком знижки
+    Касири, які пробивали чеки кожному клієнту
+    {% if vip_all %}з карткою (будь-яка знижка){% else %}з обраним відсотком знижки{% endif %}
     (тобто немає такого клієнта, якого б вони жодного разу не обслужили).
   </p>
 
@@ -223,10 +229,15 @@
     <div class="filter-item">
       <label>Відсоток знижки</label>
       <input type="number" name="vip_percent" min="0" max="100" step="1"
-             value="{{ f.vip_percent }}" list="pct_list" placeholder="напр. 20">
+
+      
+
+             value="{{ f.vip_percent }}" list="pct_list" placeholder="усі (будь-яка знижка)">
       <datalist id="pct_list">
         {% for pct in percents %}<option value="{{ pct }}">{% endfor %}
       </datalist>
+      <span class="page-sub" style="margin:0; font-size:11px;">Порожнє поле — усі клієнти</span>
+
     </div>
     <button class="btn primary" type="submit">Застосувати</button>
     <a class="btn btn-danger" href="/reports">Скинути</a>
@@ -234,7 +245,8 @@
   </form>
 
   <p class="page-sub" style="margin-top:4px;">
-    Клієнтів зі знижкою {{ f.vip_percent }}%: <strong>{{ vip_count }}</strong>
+    {% if vip_all %}Клієнтів з карткою (усього){% else %}Клієнтів зі знижкою {{ f.vip_percent }}%{% endif %}:
+    <strong>{{ vip_count }}</strong>
   </p>
 
   <table class="cat-table">
@@ -252,11 +264,343 @@
       </tr>
       {% else %}
       <tr><td colspan="2" class="cat-empty">
-        {% if vip_count == 0 %}Немає клієнтів зі знижкою {{ f.vip_percent }}%.
-        {% else %}Жоден касир не обслужив усіх клієнтів зі знижкою {{ f.vip_percent }}%.{% endif %}
+        {% if vip_count == 0 %}{% if vip_all %}Немає клієнтів із картками.{% else %}Немає клієнтів зі знижкою {{ f.vip_percent }}%.{% endif %}
+        {% else %}Жоден касир не обслужив усіх клієнтів {% if vip_all %}з будь-якою знижкою{% else %}зі знижкою {{ f.vip_percent }}%{% endif %}.{% endif %}
       </td></tr>
       {% endfor %}
     </tbody>
+  </table>
+  </section>
+
+  {# ═══════ Продажі за касиром і категорією (групування, параметрична) ═══════ #}
+  <section class="report-section" id="sec-catsales">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Продажі за касиром і категорією</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Скільки одиниць і на яку суму продав кожен касир у кожній категорії товарів.
+    Можна обмежити касиром і періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return gCheckDates(this)">
+    <div class="filter-item">
+      <label>Касир</label>
+      <select name="g_emp">
+        <option value="">Усі касири</option>
+        {% for c in cashiers %}
+        <option value="{{ c.id_employee }}" {{ 'selected' if f.g_emp == c.id_employee }}>
+          {{ c.empl_surname }} {{ c.empl_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="g_from" name="g_from" value="{{ f.g_from }}" max="{{ f.g_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="g_to" name="g_to" value="{{ f.g_to }}" min="{{ f.g_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('catsales')">Друк</button>
+  </form>
+
+  {% if g_err %}<div class="flash flash-err" style="margin-top:8px;">{{ g_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:14%">ID касира</th>
+        <th style="width:28%">Касир</th>
+        <th style="width:24%">Категорія</th>
+        <th style="width:16%; text-align: center;" >Продано одиниць</th>
+        <th style="width:18%; text-align: right;">Сума</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in cashier_cat_sales %}
+      <tr>
+        <td class="mono">{{ x.id_employee }}</td>
+        <td>{{ x.empl_surname }} {{ x.empl_name }}</td>
+        <td class="muted">{{ x.category_name }}</td>
+        <td style="text-align: center;">{{ x.units }}</td>
+        <td style="text-align: right;"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="cat-empty">Немає продажів за заданими умовами.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
+  {# ═══════ Клієнти, що купували в УСІХ категоріях (подвійне заперечення, параметрична) ═══════ #}
+  <section class="report-section" id="sec-allcat">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Клієнти, що купували в усіх категоріях</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Клієнти з карткою, які мають покупки в кожній категорії товарів
+    (немає жодної категорії, в якій у клієнта не було б покупки). Можна обмежити періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return acCheckDates(this)">
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="ac_from" name="ac_from" value="{{ f.ac_from }}" max="{{ f.ac_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="ac_to" name="ac_to" value="{{ f.ac_to }}" min="{{ f.ac_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('allcat')">Друк</button>
+  </form>
+
+  {% if ac_err %}<div class="flash flash-err" style="margin-top:8px;">{{ ac_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:24%">Картка</th>
+        <th style="width:38%">Прізвище</th>
+        <th>Ім'я</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in customers_all_cat %}
+      <tr>
+        <td class="mono">{{ x.card_number }}</td>
+        <td>{{ x.cust_surname }}</td>
+        <td>{{ x.cust_name }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="cat-empty">Немає клієнтів, що купували в усіх категоріях.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
+  {# ═══════ Аудит продажів за касиром і категорією (групування, параметрична) ═══════ #}
+  <section class="report-section" id="sec-audit">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Аудит: хто найкраще продає категорію</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Зведена таблиця: який касир продає найбільше товарів певної категорії (виручка, к-сть чеків,
+    одиниці). Сортування за виручкою. Можна обмежити категорією та періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return auCheckDates(this)">
+    <div class="filter-item">
+      <label>Категорія</label>
+      <select name="au_cat">
+        <option value="">Усі категорії</option>
+        {% for c in categories_list %}
+        <option value="{{ c.category_number }}" {{ 'selected' if f.au_cat == c.category_number }}>{{ c.category_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="au_from" name="au_from" value="{{ f.au_from }}" max="{{ f.au_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="au_to" name="au_to" value="{{ f.au_to }}" min="{{ f.au_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('audit')">Друк</button>
+  </form>
+
+  {% if au_err %}<div class="flash flash-err" style="margin-top:8px;">{{ au_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:26%; text-align: left;">Категорія</th>
+        <th style="width:18%; text-align: left;">Найкращий касир</th>
+        <th style="width:22%; text-align: center;">Чеків</th>
+        <th style="width:22%; text-align: center;">Одиниць</th>
+        <th style="width:22%; text-align: right;">Виручка</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in cashier_audit %}
+      <tr>
+        <td style="text-align: left;">{{ x.category_name }}</td>
+        <td style="text-align: left;"><strong>{{ x.empl_surname }} {{ x.empl_name }}</strong></td>
+        <td style="text-align: center;">{{ x.checks_cnt }}</td>
+        <td style="text-align: center;">{{ x.units }}</td>
+        <td style="text-align: right;"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="cat-empty" style="text-align: center;">Немає продажів за заданими умовами.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
+  {# ═══════ «Ідеальні» категорії: усі товари продано (подвійне заперечення, параметрична) ═══════ #}
+  <section class="report-section" id="sec-ideal">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Категорії без «мертвого вантажу»</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Категорії, у яких кожен наявний товар було продано хоча б раз
+    (немає жодного товару категорії, який ніколи не продавався). Можна обмежити періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return icCheckDates(this)">
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="ic_from" name="ic_from" value="{{ f.ic_from }}" max="{{ f.ic_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="ic_to" name="ic_to" value="{{ f.ic_to }}" min="{{ f.ic_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('ideal')">Друк</button>
+  </form>
+
+  {% if ic_err %}<div class="flash flash-err" style="margin-top:8px;">{{ ic_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:20%">№</th>
+        <th>Категорія</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in ideal_categories %}
+      <tr>
+        <td>{{ x.category_number }}</td>
+        <td>{{ x.category_name }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="cat-empty">Немає категорій, де всі товари продано.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
+  {# ═════════════ Реєстри для друку : повні переліки сутностей ═════════════ #}
+  <section class="report-section" id="sec-registry">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Реєстри — {{ registries[reg] }}</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Повні переліки даних для друку: працівники, постійні клієнти, категорії, товари,
+    товари у магазині, чеки.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports">
+    <div class="filter-item">
+      <label>Реєстр</label>
+      <select name="reg" onchange="this.form.submit()">
+        {% for key, title in registries.items() %}
+        <option value="{{ key }}" {{ 'selected' if reg == key }}>{{ title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn primary" type="submit">Показати</button>
+    <button type="button" class="btn no-print" onclick="printSection('registry')">Друк</button>
+  </form>
+
+  <p class="page-sub" style="margin-top:4px;">Записів: <strong>{{ registry_rows|length }}</strong></p>
+
+  <table class="cat-table">
+    {% if reg == 'employees' %}
+    <thead><tr>
+      <th>ID</th><th>Прізвище</th><th>Ім'я</th><th>По батькові</th><th>Посада</th>
+      <th class="r">Зарплата</th><th>Дата нар.</th><th>Працює з</th><th>Телефон</th>
+      <th>Місто</th><th>Вулиця</th><th>Індекс</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.id_employee }}</td><td>{{ x.empl_surname }}</td><td>{{ x.empl_name }}</td>
+        <td>{{ x.empl_patronymic or '—' }}</td><td>{{ x.empl_role }}</td>
+        <td class="r">{{ '%.2f'|format(x.salary) }}</td><td>{{ x.date_of_birth }}</td>
+        <td>{{ x.date_of_start }}</td><td class="mono">{{ x.phone_number }}</td>
+        <td>{{ x.city }}</td><td>{{ x.street }}</td><td>{{ x.zip_code }}</td>
+      </tr>
+      {% else %}<tr><td colspan="12" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'customers' %}
+    <thead><tr>
+      <th>Картка</th><th>Прізвище</th><th>Ім'я</th><th>По батькові</th><th>Телефон</th>
+      <th>Місто</th><th>Вулиця</th><th>Індекс</th><th class="r">Знижка</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.card_number }}</td><td>{{ x.cust_surname }}</td><td>{{ x.cust_name }}</td>
+        <td>{{ x.cust_patronymic or '—' }}</td><td class="mono">{{ x.phone_number }}</td>
+        <td>{{ x.city or '—' }}</td><td>{{ x.street or '—' }}</td><td>{{ x.zip_code or '—' }}</td>
+        <td class="r">{{ x.percent }}%</td>
+      </tr>
+      {% else %}<tr><td colspan="9" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'categories' %}
+    <thead><tr><th style="width:20%">№</th><th>Назва категорії</th></tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr><td>{{ x.category_number }}</td><td>{{ x.category_name }}</td></tr>
+      {% else %}<tr><td colspan="2" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'products' %}
+    <thead><tr>
+      <th>ID</th><th>Назва</th><th>Виробник</th><th>Характеристики</th><th>Категорія</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td>{{ x.id_product }}</td><td>{{ x.product_name }}</td><td>{{ x.producer }}</td>
+        <td class="muted">{{ x.characteristics }}</td><td>{{ x.category_name }}</td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'store' %}
+    <thead><tr>
+      <th>UPC</th><th>Товар</th><th>Категорія</th><th class="r">Ціна</th>
+      <th class="r">Залишок</th><th>Тип</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.UPC }}</td><td>{{ x.product_name }}</td><td>{{ x.category_name }}</td>
+        <td class="r">{{ '%.2f'|format(x.selling_price) }} ₴</td><td class="r">{{ x.products_number }}</td>
+        <td>{{ 'акційний' if x.promotional_product else 'звичайний' }}</td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+
+    {% elif reg == 'checks' %}
+    <thead><tr>
+      <th>№ чека</th><th>Дата</th><th>Касир</th><th>Картка</th>
+      <th class="r">Сума</th><th class="r">ПДВ</th>
+    </tr></thead>
+    <tbody>
+      {% for x in registry_rows %}
+      <tr>
+        <td class="mono">{{ x.check_number }}</td><td>{{ x.print_date }}</td><td>{{ x.empl_surname }}</td>
+        <td class="mono">{{ x.card_number or '—' }}</td>
+        <td class="r">{{ '%.2f'|format(x.sum_total) }} ₴</td><td class="r">{{ '%.2f'|format(x.vat) }} ₴</td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="cat-empty">Немає записів.</td></tr>{% endfor %}
+    </tbody>
+    {% endif %}
   </table>
   </section>
 
@@ -280,6 +624,16 @@
     return true;
   }
   catSyncDates();
+
+  // перевірка діапазону дат для додаткових параметричних звітів
+  function _checkRange(f, t){
+    if (f && t && f > t){ alert('Дата «від» не може бути пізнішою за дату «до».'); return false; }
+    return true;
+  }
+  function gCheckDates(form){ return _checkRange(form.g_from.value, form.g_to.value); }
+  function acCheckDates(form){ return _checkRange(form.ac_from.value, form.ac_to.value); }
+  function auCheckDates(form){ return _checkRange(form.au_from.value, form.au_to.value); }
+  function icCheckDates(form){ return _checkRange(form.ic_from.value, form.ic_to.value); }
 
   // Друк: усієї сторінки або окремої секції (через @media print)
   function stampPrintDate(){

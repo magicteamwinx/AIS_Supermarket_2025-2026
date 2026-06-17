@@ -1,65 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Каса та Чеки — ZLAGODA{% endblock %}
+{% block title %}Історія чеків — ZLAGODA{% endblock %}
 
 {% block content %}
+<style>
+  a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  .cat-filters{ align-items:flex-end; }
+  
+  /* Новий клас для червоної кнопки Скинути */
+  .btn-danger { background-color: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background-color: #c82333; color: white; border-color: #bd2130; }
+
+  .print-only{ display:none; }
+  @media print{
+    /* ховаємо навігацію, фільтри й кнопки — лишаємо лише список чеків */
+    .topbar, .no-print{ display:none !important; }
+    main{ margin:0; }
+    .container{ max-width:none; }
+    .print-only{ display:block; margin-bottom:12px; }
+    .tile{ border:1px solid #999 !important; break-inside:avoid; }
+  }
+</style>
 <div class="container">
 
-  {% if user.role == 'Касир' %}
-  <h1 class="page-title">Новий продаж</h1>
-  
-  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 40px;">
-    
-    <div class="tile" style="padding: 20px;">
-      <form id="scanForm" onsubmit="scanItem(event)" style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <input type="text" id="upcInput" placeholder="Відскануйте UPC товару..." required autocomplete="off" style="flex: 1; padding: 12px; font-size: 16px; border: 2px solid var(--accent); border-radius: var(--radius);">
-        <button type="submit" class="btn primary">Додати в чек</button>
-      </form>
-
-      <table class="data-table" style="width: 100%;">
-        <thead>
-          <tr>
-            <th>Назва товару</th>
-            <th style="text-align: right; padding-right: 40px;">Ціна</th>
-            <th style="width: 120px; text-align: center;">К-сть</th>
-            <th style="text-align: left; padding-left: 32px;">Сума</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="cartBody">
-          <tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 20px;">Кошик порожній</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="tile" style="padding: 20px; background: var(--accent-soft); border-color: var(--accent);">
-      <h3 style="margin-top: 0; font-size: 16px; color: var(--text);">Оформлення чека</h3>
-      
-      <div style="margin-bottom: 15px;">
-        <label style="font-size: 12px; color: var(--muted);">Номер чека (Автоматично)</label>
-        <input type="text" id="checkNumber" readonly style="width: 100%; padding: 8px; background: #e5e7eb; border: 1px solid var(--line); font-weight: bold; font-family: monospace;">
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <label style="font-size: 12px; color: var(--muted);">Картка клієнта (необов'язково)</label>
-        <input type="text" id="cardNumber" placeholder="Напр. CARD001" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
-      </div>
-
-      <div style="border-top: 2px dashed var(--accent); padding-top: 15px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; font-size: 24px; font-weight: bold; color: var(--accent);">
-          <span>До сплати:</span>
-          <span id="cartTotal">0.00 ₴</span>
-        </div>
-      </div>
-
-      <button onclick="checkout()" class="btn primary" style="width: 100%; font-size: 18px; padding: 15px;">Пробити чек</button>
-    </div>
-  </div>
-  {% endif %}
-
   <h1 class="page-title">Історія транзакцій</h1>
-  
-  <div class="tile" style="margin-bottom: 20px;">
-    <form action="/receipts" method="get" style="display: flex; gap: 15px; align-items: flex-end; margin: 0;">
+
+  <div class="print-only">
+    <h2 style="margin:0;">ZLAGODA — Історія транзакцій</h2>
+    <div style="font-size:12px;color:#555;">Сформовано: <span id="print_date"></span></div>
+  </div>
+
+  <div class="tile no-print" style="margin-bottom: 20px;">
+    <form action="/receipts" method="get" style="display: flex; gap: 15px; align-items: flex-end; margin: 0; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 150px;">
         <label style="font-size: 12px; color: var(--muted);">Номер чека</label>
         <input type="text" name="check_number" value="{{ search_check }}" placeholder="Напр. 15 або CHK001" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -81,7 +52,8 @@
       {% endif %}
       
       <button type="submit" class="btn primary">Пошук</button>
-      <a href="/receipts" class="btn" style="border: 1px solid var(--line);">Скинути</a>
+      <a href="/receipts" class="btn btn-danger" style="border: 1px solid var(--line); text-decoration: none;">Скинути</a>
+      <button type="button" class="btn" onclick="stampPrintDate(); window.print();" style="border: 1px solid var(--line);"> Друк</button>
     </form>
   </div>
 
@@ -96,7 +68,7 @@
         <div style="display: flex; align-items: center; gap: 15px;">
           <div style="font-size: 20px; font-weight: bold; color: var(--accent);">{{ c.sum_total }} ₴</div>
           {% if user.role == 'Менеджер' %}
-          <button onclick="deleteCheck('{{ c.check_number }}')" class="btn" style="color: red; border-color: red; padding: 4px 8px;">Видалити</button>
+          <button onclick="deleteCheck('{{ c.check_number }}')" class="btn no-print" style="color: red; border-color: red; padding: 4px 8px;">Видалити</button>
           {% endif %}
         </div>
       </div>
@@ -118,175 +90,13 @@
 
 </div>
 
-{% if user.role == 'Касир' %}
 <script>
-  let cart = [];
-
-  window.onload = async () => {
-    try {
-      const res = await fetch('/api/next-check-id');
-      const data = await res.json();
-      document.getElementById('checkNumber').value = data.next_id;
-    } catch (e) {
-      document.getElementById('checkNumber').value = "ПОМИЛКА";
-    }
-  };
-
-  //додавання товару в кошик
-  async function scanItem(e) {
-    e.preventDefault();
-    const upcInput = document.getElementById('upcInput');
-    const upc = upcInput.value.trim();
-    if (!upc) return;
-
-    const existingItem = cart.find(i => i.UPC === upc);
-    if (existingItem) {
-      if (existingItem.qty < existingItem.stock) {
-        existingItem.qty++;
-        renderCart();
-      } else {
-        alert("Недостатньо товару на складі!");
-      }
-      upcInput.value = '';
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/quick-scan/${upc}`);
-      if (!response.ok) {
-        alert(`Товар зі штрих-кодом ${upc} не знайдено!`);
-        upcInput.value = '';
-        return;
-      }
-      
-      const product = await response.json();
-      if (product.stock <= 0) {
-        alert("Цього товару немає в наявності!");
-        return;
-      }
-
-      cart.push({
-        UPC: product.upc,
-        name: product.name,
-        price: product.price,
-        qty: 1,
-        stock: product.stock
-      });
-      
-      upcInput.value = '';
-      renderCart();
-      
-    } catch (err) {
-      alert("Помилка зв'язку з сервером");
-    }
-  }
-
-  //видалення товару з кошика
-  function removeItem(index) {
-    cart.splice(index, 1);
-    renderCart(); 
-  }
-
-  //оновлення кількості товару
-  function changeQty(index, delta) {
-    const item = cart[index];
-    const newQty = item.qty + delta;
-    if (newQty > 0 && newQty <= item.stock) {
-      item.qty = newQty;
-    } else if (newQty === 0) {
-      cart.splice(index, 1);
-    } else {
-      alert(`Максимальна кількість на складі: ${item.stock} шт.`);
-    }
-    renderCart();
-  }
-
-  function renderCart() {
-    const tbody = document.getElementById('cartBody');
-    let html = '';
-    let total = 0;
-
-    if (cart.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 20px;">Кошик порожній</td></tr>';
-      document.getElementById('cartTotal').innerText = '0.00 ₴';
-      return;
-    }
-
-    cart.forEach((item, index) => {
-      const rowTotal = item.price * item.qty;
-      total += rowTotal;
-      html += `
-        <tr>
-          <td>
-            <strong>${item.name}</strong>
-            <div style="font-size: 11px; color: var(--muted); font-family: monospace;">${item.UPC}</div>
-          </td>
-          <td style="text-align: right; padding-right: 30px;">${item.price.toFixed(2)} ₴</td>
-          <td style="text-align: center;">
-            <div style="display: flex; justify-content: center; align-items: center; gap: 5px;">
-              <button type="button" class="btn" style="padding: 2px 6px;" onclick="changeQty(${index}, -1)">-</button>
-              <span style="font-weight: bold; width: 20px; text-align: center;">${item.qty}</span>
-              <button type="button" class="btn" style="padding: 2px 6px;" onclick="changeQty(${index}, 1)">+</button>
-            </div>
-          </td>
-          <td style="font-weight: bold; text-align: left; padding-left: 30px;">${rowTotal.toFixed(2)} ₴</td>
-          <td style="text-align: center; vertical-align: middle;">
-            <button type="button" 
-                    title="Видалити з чека" 
-                    style="background: #fee2e2; color: #ef4444; border: 1px solid #f87171; border-radius: var(--radius); padding: 5px 12px; font-size: 14px; cursor: pointer; font-weight: bold;" 
-                    onclick="removeItem(${index})">
-              ✖
-            </button>
-          </td>
-        </tr>
-      `;
-    });
-
-    tbody.innerHTML = html;
-    document.getElementById('cartTotal').innerText = total.toFixed(2) + ' ₴';
-  }
-
-  //фінальне пробиття чеку (POST-запит)
-  async function checkout() {
-    if (cart.length === 0) {
-      alert("Додайте товари у кошик!");
-      return;
-    }
-
-    const payload = {
-      check_number: document.getElementById('checkNumber').value,
-      card_number: document.getElementById('cardNumber').value || null,
-      items: cart.map(item => ({
-        UPC: item.UPC,
-        product_number: item.qty
-      }))
-    };
-
-    try {
-      const response = await fetch('/checks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        alert(`Чек успішно створено!\nСума до сплати: ${data.sum_total} ₴`);
-        window.location.reload();
-      } else {
-        let errorMsg = data.detail;
-        if (Array.isArray(data.detail)) {
-          errorMsg = data.detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join('\n');
-        }
-        alert("Помилка:\n" + errorMsg);
-      }
-    } catch (err) {
-      alert("Помилка з'єднання з сервером.");
-    }
+  // дата формування для роздруківки
+  function stampPrintDate(){
+    var el = document.getElementById('print_date');
+    if (el) el.textContent = new Date().toLocaleString('uk-UA');
   }
 </script>
-{% endif %}
 
 {% if user.role == 'Менеджер' %}
 <script>

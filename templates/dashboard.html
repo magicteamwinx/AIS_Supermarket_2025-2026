@@ -7,22 +7,23 @@
   <p class="page-sub">Робоча панель системи ZLAGODA</p>
 
   {% if user.role == "Менеджер" %}
-    <h3 style="color: var(--muted); font-size: 14px;">📈 ПОКАЗНИКИ ЗА СЬОГОДНІ</h3>
+    <h3 style="color: var(--muted); font-size: 14px;"> ПОКАЗНИКИ ЗА СЬОГОДНІ</h3>
     <div class="tiles">
       <div class="tile">
-        <div class="ico">💰</div>
+        <div class="ico"></div>
         <div class="label">{{ today_revenue }} грн</div>
         <div style="font-size: 12px; color: var(--muted);">Виручка</div>
       </div>
       <div class="tile">
-        <div class="ico">🧾</div>
+        <div class="ico"></div>
         <div class="label">{{ today_checks }} шт</div>
         <div style="font-size: 12px; color: var(--muted);">Пробито чеків</div>
       </div>
+
     </div>
 
     <h3 style="color: var(--danger); font-size: 14px; text-transform: uppercase; margin-top: 40px; display: flex; align-items: center; gap: 8px;">
-      <span style="font-size: 18px;">⚠️</span> Потребують уваги (Залишок < 10 шт)
+      <span style="font-size: 18px;"></span> Потребують уваги (Залишок < 10 шт)
     </h3>
     
     {% if low_stock_items %}
@@ -50,8 +51,8 @@
       </div>
     {% else %}
       <div class="tile" style="align-items: center; justify-content: center; padding: 40px 20px; text-align: center; border: 2px dashed var(--line); background: transparent;">
-        <div style="font-size: 32px; margin-bottom: 12px;">✅</div>
-        <div style="font-weight: 600; font-size: 16px;">Усе під контролем!</div>
+        <div style="font-size: 32px; margin-bottom: 12px;"></div>
+        <div style="font-weight: 600; font-size: 32px;">Усе під контролем!</div>
         <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">Немає товарів із критично низьким залишком.</div>
       </div>
     {% endif %}
@@ -59,95 +60,31 @@
 
   {% if user.role == "Касир" %}
     
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 20px;">⚡ Операційна каса</h3>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 20px;"> Операційна каса</h3>
     
     <div class="tiles" style="grid-template-columns: 1fr;">
-      <a href="/receipts" class="tile" style="background: var(--accent); color: white; text-align: center; padding: 30px; transition: transform 0.1s;">
-        <div class="ico" style="color: white; font-size: 48px; margin-bottom: 10px;">🛒</div>
+      <a href="/cash-register" class="tile" style="background: var(--accent); color: white; text-align: center; padding: 30px; transition: transform 0.1s;">
         <div class="label" style="font-size: 22px;">ВІДКРИТИ НОВИЙ ЧЕК</div>
       </a>
     </div>
 
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 30px;">📈 Моя зміна за сьогодні</h3>
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 30px;"> Моя зміна за сьогодні</h3>
     <div class="tiles">
       <div class="tile">
-        <div class="ico">🧾</div>
         <div class="label" style="font-size: 20px;">{{ my_checks }} шт</div>
         <div style="font-size: 13px; color: var(--muted);">Пробито чеків</div>
       </div>
       
       <div class="tile">
-        <div class="ico">💰</div>
+        <div class="ico"></div>
         <div class="label" style="font-size: 20px;">{{ my_revenue }} грн</div>
         <div style="font-size: 13px; color: var(--muted);">Моя виручка</div>
       </div>
       
-      <a href="/my-checks" class="tile" style="justify-content: center; align-items: center; border: 2px dashed var(--line);">
+      <a href="/receipts" class="tile" style="justify-content: center; align-items: center; border: 2px dashed var(--line);">
         <div style="font-size: 15px; font-weight: 600; color: var(--accent);">Усі мої чеки ➔</div>
       </a>
     </div>
-
-    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 30px;">🔍 Міні-сканер (Швидка перевірка)</h3>
-    <div class="tile" style="display: flex; flex-direction: column; gap: 15px;">
-      
-      <form id="quick-scanner-form" style="display: flex; width: 100%; gap: 10px; margin: 0;">
-        <input type="text" id="scanner-input" placeholder="Введіть або відскануйте UPC товару..." style="flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); font-family: inherit;" required autocomplete="off">
-        <button type="submit" class="btn primary">Перевірити ціну</button>
-      </form>
-
-      <div id="scanner-result" style="display: none; padding-top: 15px; border-top: 1px dashed var(--line);">
-        </div>
-
-    </div>
-
-    <script>
-      document.getElementById('quick-scanner-form').addEventListener('submit', async function(event) {
-        event.preventDefault();
-        
-        const upcInput = document.getElementById('scanner-input');
-        const resultDiv = document.getElementById('scanner-result');
-        const upc = upcInput.value.trim();
-        
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = '<span style="color: var(--muted);">Шукаю товар у базі...</span>';
-        
-        try {
-          // Робимо "тихий" запит на наш новий API-ендпоінт
-          const response = await fetch(`/api/quick-scan/${upc}`);
-          
-          if (!response.ok) {
-            // Якщо сервер повернув 404 (Не знайдено)
-            resultDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ Товар зі штрих-кодом "${upc}" не знайдено!</div>`;
-            upcInput.select();
-            return;
-          }
-          
-          const data = await response.json();
-          
-          const stockColor = data.stock > 0 ? '#10b981' : 'var(--danger)';
-          const stockText = data.stock > 0 ? `В наявності: ${data.stock} шт` : 'Немає на складі!';
-          const promoBadge = data.is_promo ? `<span style="background: #fbbf24; color: #fff; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px;">АКЦІЯ</span>` : '';
-
-          resultDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 10px; border-radius: var(--radius);">
-              <div>
-                <div style="font-weight: bold; font-size: 18px; color: var(--text);">${data.name} ${promoBadge}</div>
-                <div style="font-size: 12px; color: var(--muted); font-family: monospace;">UPC: ${data.upc}</div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 22px; font-weight: bold; color: var(--accent);">${data.price.toFixed(2)} ₴</div>
-                <div style="font-size: 13px; color: ${stockColor}; font-weight: bold;">${stockText}</div>
-              </div>
-            </div>
-          `;
-          
-          upcInput.select();
-          
-        } catch (error) {
-          resultDiv.innerHTML = `<div style="color: var(--danger);">Помилка з'єднання з сервером.</div>`;
-        }
-      });
-    </script>
 
   {% endif %}
 
