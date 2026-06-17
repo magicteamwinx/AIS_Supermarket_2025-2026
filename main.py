@@ -897,7 +897,6 @@ def get_checks(
         #якщо тільки дата початку, то виведе лише чеки за цей день
         query += " AND DATE(print_date) = ?"
         params.append(start_date)
-    #фільтр по ID касира (менеджер)
     if id_employee:
         query += " AND id_employee = ?"
         params.append(id_employee)
