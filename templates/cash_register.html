@@ -51,8 +51,18 @@
 
       <button onclick="checkout()" class="btn primary" style="width: 100%; font-size: 18px; padding: 15px;">Пробити чек</button>
     </div>
+  </div> <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase; margin-top: 10px; margin-bottom: 15px;"> Міні-сканер (Швидка перевірка ціни та залишку)</h3>
+  <div class="tile" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+    <form id="quick-scanner-form" style="display: flex; width: 100%; gap: 10px; margin: 0;">
+      <input type="text" id="scanner-input" placeholder="Відскануйте UPC для швидкої перевірки..." style="flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); font-family: inherit;" required autocomplete="off">
+      <button type="submit" class="btn" style="border: 1px solid var(--line);">Перевірити</button>
+    </form>
+    <div id="scanner-result" style="display: none; padding-top: 15px; border-top: 1px dashed var(--line);"></div>
+  </div>
   </div>
 </div>
+
+
 
 <script>
   let cart = [];
@@ -67,6 +77,7 @@
     }
   };
 
+  //додавання товару в кошик
   async function scanItem(e) {
     e.preventDefault();
     const upcInput = document.getElementById('upcInput');
@@ -115,11 +126,13 @@
     }
   }
 
+  //видалення товару з кошику
   function removeItem(index) {
     cart.splice(index, 1);
     renderCart(); 
   }
 
+  //змінення кількості товару в кошику
   function changeQty(index, delta) {
     const item = cart[index];
     const newQty = item.qty + delta;
@@ -133,6 +146,7 @@
     renderCart();
   }
 
+  //промальовка товару в кошику
   function renderCart() {
     const tbody = document.getElementById('cartBody');
     let html = '';
@@ -173,6 +187,7 @@
     document.getElementById('cartTotal').innerText = total.toFixed(2) + ' ₴';
   }
 
+  //збереження чеку
   async function checkout() {
     if (cart.length === 0) {
       alert("Додайте товари у кошик!");
@@ -211,5 +226,48 @@
       alert("Помилка з'єднання з сервером.");
     }
   }
+  //логіка сканера
+  document.getElementById('quick-scanner-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    
+    const upcInput = document.getElementById('scanner-input');
+    const resultDiv = document.getElementById('scanner-result');
+    const upc = upcInput.value.trim();
+    
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<span style="color: var(--muted);">Шукаю товар у базі...</span>';
+    
+    try {
+      const response = await fetch(`/api/quick-scan/${upc}`);
+      
+      if (!response.ok) {
+        resultDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ Товар зі штрих-кодом "${upc}" не знайдено!</div>`;
+        upcInput.select();
+        return;
+      }
+      
+      const data = await response.json();
+      
+      const stockColor = data.stock > 0 ? '#10b981' : 'var(--danger)';
+      const stockText = data.stock > 0 ? `В наявності: ${data.stock} шт` : 'Немає на складі!';
+      const promoBadge = data.is_promo ? `<span style="background: #fbbf24; color: #fff; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px;">АКЦІЯ</span>` : '';
+
+      resultDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 10px; border-radius: var(--radius);">
+          <div>
+            <div style="font-weight: bold; font-size: 18px; color: var(--text);">${data.name} ${promoBadge}</div>
+            <div style="font-size: 12px; color: var(--muted); font-family: monospace;">UPC: ${data.upc}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 22px; font-weight: bold; color: var(--accent);">${data.price.toFixed(2)} ₴</div>
+            <div style="font-size: 13px; color: ${stockColor}; font-weight: bold;">${stockText}</div>
+          </div>
+        </div>
+      `;
+      upcInput.select();
+    } catch (error) {
+      resultDiv.innerHTML = `<div style="color: var(--danger);">Помилка з'єднання з сервером.</div>`;
+    }
+  });
 </script>
 {% endblock %}
