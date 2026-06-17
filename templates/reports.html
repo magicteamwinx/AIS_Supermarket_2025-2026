@@ -28,6 +28,8 @@
     body[data-print="product"]  #sec-product,
     body[data-print="cat"]      #sec-cat,
     body[data-print="vip"]      #sec-vip,
+    body[data-print="catsales"] #sec-catsales,
+    body[data-print="allcat"]   #sec-allcat,
     body[data-print="registry"] #sec-registry{ display:block !important; }
 
     .cat-table{ width:100%; border-collapse:collapse; }
@@ -265,6 +267,117 @@
   </table>
   </section>
 
+  {# ═══════ Продажі за касиром і категорією (групування, параметрична) ═══════ #}
+  <section class="report-section" id="sec-catsales">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Продажі за касиром і категорією</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Скільки одиниць і на яку суму продав кожен касир у кожній категорії товарів.
+    Можна обмежити касиром і періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return gCheckDates(this)">
+    <div class="filter-item">
+      <label>Касир</label>
+      <select name="g_emp">
+        <option value="">Усі касири</option>
+        {% for c in cashiers %}
+        <option value="{{ c.id_employee }}" {{ 'selected' if f.g_emp == c.id_employee }}>
+          {{ c.empl_surname }} {{ c.empl_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="g_from" name="g_from" value="{{ f.g_from }}" max="{{ f.g_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="g_to" name="g_to" value="{{ f.g_to }}" min="{{ f.g_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('catsales')">Друк</button>
+  </form>
+
+  {% if g_err %}<div class="flash flash-err" style="margin-top:8px;">{{ g_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:14%">ID касира</th>
+        <th style="width:28%">Касир</th>
+        <th style="width:24%">Категорія</th>
+        <th style="width:16%" class="r">Продано одиниць</th>
+        <th style="width:18%" class="r">Сума</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in cashier_cat_sales %}
+      <tr>
+        <td class="mono">{{ x.id_employee }}</td>
+        <td>{{ x.empl_surname }} {{ x.empl_name }}</td>
+        <td class="muted">{{ x.category_name }}</td>
+        <td class="r">{{ x.units }}</td>
+        <td class="r"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="cat-empty">Немає продажів за заданими умовами.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
+  {# ═══════ Клієнти, що купували в УСІХ категоріях (подвійне заперечення, параметрична) ═══════ #}
+  <section class="report-section" id="sec-allcat">
+  <div class="sec-head">
+    <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;">Клієнти, що купували в усіх категоріях</h3>
+  </div>
+  <p class="page-sub" style="margin-top:4px;">
+    Клієнти з карткою, які мають покупки в кожній із {{ total_categories }} категорій товарів
+    (немає жодної категорії, в якій у клієнта не було б покупки). Можна обмежити періодом.
+  </p>
+
+  <form class="cat-filters" method="get" action="/reports" onsubmit="return acCheckDates(this)">
+    <div class="filter-item">
+      <label>Період від</label>
+      <input type="date" id="ac_from" name="ac_from" value="{{ f.ac_from }}" max="{{ f.ac_to }}">
+    </div>
+    <div class="filter-item">
+      <label>до</label>
+      <input type="date" id="ac_to" name="ac_to" value="{{ f.ac_to }}" min="{{ f.ac_from }}">
+    </div>
+    <button class="btn primary" type="submit">Застосувати</button>
+    <a class="btn btn-danger" href="/reports">Скинути</a>
+    <button type="button" class="btn no-print" onclick="printSection('allcat')">Друк</button>
+  </form>
+
+  {% if ac_err %}<div class="flash flash-err" style="margin-top:8px;">{{ ac_err }}</div>{% endif %}
+
+  <table class="cat-table">
+    <thead>
+      <tr>
+        <th style="width:24%">Картка</th>
+        <th style="width:38%">Прізвище</th>
+        <th>Ім'я</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in customers_all_cat %}
+      <tr>
+        <td class="mono">{{ x.card_number }}</td>
+        <td>{{ x.cust_surname }}</td>
+        <td>{{ x.cust_name }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="cat-empty">Немає клієнтів, що купували в усіх категоріях.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </section>
+
   {# ═════════════ Реєстри для друку (М-4): повні переліки сутностей ═════════════ #}
   <section class="report-section" id="sec-registry">
   <div class="sec-head">
@@ -399,6 +512,14 @@
     return true;
   }
   catSyncDates();
+
+  // перевірка діапазону дат для додаткових параметричних звітів
+  function _checkRange(f, t){
+    if (f && t && f > t){ alert('Дата «від» не може бути пізнішою за дату «до».'); return false; }
+    return true;
+  }
+  function gCheckDates(form){ return _checkRange(form.g_from.value, form.g_to.value); }
+  function acCheckDates(form){ return _checkRange(form.ac_from.value, form.ac_to.value); }
 
   // Друк: усієї сторінки або окремої секції (через @media print)
   function stampPrintDate(){

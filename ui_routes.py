@@ -414,6 +414,11 @@ def ui_reports(
     cat_to: str | None = None,
     cat_min: str | None = None,
     vip_percent: str | None = None,      # параметр аналітики «VIP-касири»
+    g_from: str | None = None,           # продажі касир×категорія: період + касир
+    g_to: str | None = None,
+    g_emp: str | None = None,
+    ac_from: str | None = None,          # клієнти, що купували в усіх категоріях: період
+    ac_to: str | None = None,
     reg: str | None = None,              # який реєстр показати/друкувати (М-4)
     current_user: dict = Depends(get_user_from_cookie),
     db: sqlite3.Connection = Depends(get_db),
@@ -528,6 +533,81 @@ def ui_reports(
     cat_params.append(cat_min_val)
     cursor.execute(cat_query, cat_params)
     category_revenue = [dict(x) for x in cursor.fetchall()]
+
+    # (3) Продажі за касиром і категорією — ГРУПУВАННЯ, ПАРАМЕТРИЧНИЙ (касир + період).
+    #     Багатотабличний (6 таблиць): Employee, Check_AIS, Sale, Store_Product, Product, Category.
+    #     Для кожного касира і категорії — скільки одиниць продав і на яку суму.
+    g_err = None
+    g_period_on = False
+    if g_from and g_to:
+        if g_from <= g_to:
+            g_period_on = True
+        else:
+            g_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
+    g_query = """
+        SELECT e.id_employee, e.empl_surname, e.empl_name,
+               c.category_name,
+               SUM(s.product_number) AS units,
+               SUM(s.product_number * s.selling_price) AS revenue
+        FROM Employee e
+        JOIN "Check_AIS" ch ON ch.id_employee = e.id_employee
+        JOIN Sale s ON s.check_number = ch.check_number
+        JOIN Store_Product sp ON sp.UPC = s.UPC
+        JOIN Product p ON p.id_product = sp.id_product
+        JOIN Category c ON c.category_number = p.category_number
+        WHERE e.empl_role = 'Касир'
+    """
+    g_params = []
+    if g_emp:
+        g_query += " AND e.id_employee = ?"
+        g_params.append(g_emp)
+    if g_period_on:
+        g_query += " AND DATE(ch.print_date) BETWEEN ? AND ?"
+        g_params += [g_from, g_to]
+    g_query += """
+        GROUP BY e.id_employee, e.empl_surname, e.empl_name, c.category_number, c.category_name
+        ORDER BY e.empl_surname, e.empl_name, c.category_name
+    """
+    cursor.execute(g_query, g_params)
+    cashier_cat_sales = [dict(x) for x in cursor.fetchall()]
+
+    # (4) Клієнти, що купували товари в УСІХ категоріях — ПОДВІЙНЕ ЗАПЕРЕЧЕННЯ, ПАРАМЕТРИЧНИЙ (період).
+    #     Багатотабличний: Customer_Card, Category, Check_AIS, Sale, Store_Product, Product.
+    #     Немає жодної категорії, в якій у клієнта не було б покупки.
+    ac_err = None
+    ac_period_on = False
+    if ac_from and ac_to:
+        if ac_from <= ac_to:
+            ac_period_on = True
+        else:
+            ac_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
+    ac_date_cond = ""
+    ac_params = []
+    if ac_period_on:
+        ac_date_cond = " AND DATE(ch.print_date) BETWEEN ? AND ?"
+        ac_params = [ac_from, ac_to]
+    cursor.execute(f"""
+        SELECT cc.card_number, cc.cust_surname, cc.cust_name
+        FROM Customer_Card cc
+        WHERE NOT EXISTS (
+            SELECT 1 FROM Category cat
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM "Check_AIS" ch
+                JOIN Sale s ON s.check_number = ch.check_number
+                JOIN Store_Product sp ON sp.UPC = s.UPC
+                JOIN Product p ON p.id_product = sp.id_product
+                WHERE ch.card_number = cc.card_number
+                  AND p.category_number = cat.category_number
+                  {ac_date_cond}
+            )
+        )
+        ORDER BY cc.cust_surname, cc.cust_name
+    """, ac_params)
+    customers_all_cat = [dict(x) for x in cursor.fetchall()]
+
+    cursor.execute("SELECT COUNT(*) AS n FROM Category")
+    total_categories = cursor.fetchone()["n"]
 
     # ── Реєстри для друку (М-4): повні переліки сутностей ──
     REGISTRIES = {
@@ -654,6 +734,11 @@ def ui_reports(
             "percents": percents,
             "vip_count": vip_count,
             "vip_all": vip_all,
+            "cashier_cat_sales": cashier_cat_sales,
+            "g_err": g_err,
+            "customers_all_cat": customers_all_cat,
+            "ac_err": ac_err,
+            "total_categories": total_categories,
             "reg": reg,
             "registries": REGISTRIES,
             "registry_rows": registry_rows,
@@ -669,6 +754,11 @@ def ui_reports(
                 "cat_to": cat_to or "",
                 "cat_min": cat_min or "",
                 "vip_percent": "" if vip_all else vip_pct,
+                "g_from": g_from or "",
+                "g_to": g_to or "",
+                "g_emp": g_emp or "",
+                "ac_from": ac_from or "",
+                "ac_to": ac_to or "",
             },
         },
     )
