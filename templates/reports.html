@@ -56,13 +56,13 @@
 
   {% if err %}<div class="flash flash-err">{{ err }}</div>{% endif %}
 
-  {# ═════════════ Звіт із продажів за період (М-19 / М-20) ═════════════ #}
+  {# ═════════════ Звіт із продажів за період  ═════════════ #}
   <section class="report-section" id="sec-sales">
   <div class="sec-head">
     <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Продажі за період</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
-    Загальна сума та кількість чеків за період — для обраного касира або для всіх (М-19, М-20).
+    Загальна сума та кількість чеків за період — для обраного касира або для всіх.
   </p>
 
   <form class="cat-filters" method="get" action="/reports">
@@ -109,13 +109,13 @@
   {% endif %}
   </section>
 
-  {# ═════════════ Продаж конкретного товару (М-21) ═════════════ #}
+  {# ═════════════ Продаж конкретного товару  ═════════════ #}
   <section class="report-section" id="sec-product">
   <div class="sec-head">
     <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Продаж конкретного товару</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
-    Загальна кількість одиниць обраного товару, проданого за період (М-21).
+    Загальна кількість одиниць обраного товару, проданого за період .
   </p>
 
   <form class="cat-filters" method="get" action="/reports">
@@ -146,7 +146,6 @@
   {% if product_report %}
   <div class="tiles" style="margin-top:16px;">
     <div class="tile">
-      <div class="ico">📊</div>
       <div class="label">{{ product_report.total_units }} шт</div>
       <div style="font-size: 12px; color: var(--muted);">Продано одиниць</div>
     </div>
@@ -487,14 +486,14 @@
   </table>
   </section>
 
-  {# ═════════════ Реєстри для друку (М-4): повні переліки сутностей ═════════════ #}
+  {# ═════════════ Реєстри для друку : повні переліки сутностей ═════════════ #}
   <section class="report-section" id="sec-registry">
   <div class="sec-head">
     <h3 style="color: var(--muted); font-size: 14px; text-transform: uppercase;"> Реєстри — {{ registries[reg] }}</h3>
   </div>
   <p class="page-sub" style="margin-top:4px;">
     Повні переліки даних для друку: працівники, постійні клієнти, категорії, товари,
-    товари у магазині, чеки (М-4).
+    товари у магазині, чеки.
   </p>
 
   <form class="cat-filters" method="get" action="/reports">
