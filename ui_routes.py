@@ -629,20 +629,23 @@ def ui_reports(
             au_period_on = True
         else:
             au_err = "Дата «від» не може бути пізнішою за дату «до» — період не застосовано"
+            
     au_cat_id = int(au_cat) if (au_cat and au_cat.strip().isdigit()) else None
     au_query = """
-        SELECT e.empl_surname, e.empl_name, c.category_name,
-               COUNT(DISTINCT ch.check_number) AS checks_cnt,
-               SUM(s.product_number) AS units,
-               SUM(s.product_number * s.selling_price) AS revenue
-        FROM Employee e
-        JOIN "Check_AIS" ch ON e.id_employee = ch.id_employee
-        JOIN Sale s ON ch.check_number = s.check_number
-        JOIN Store_Product sp ON s.UPC = sp.UPC
-        JOIN Product p ON sp.id_product = p.id_product
-        JOIN Category c ON p.category_number = c.category_number
-        WHERE e.empl_role = 'Касир'
+        WITH CategorySales AS (
+            SELECT e.id_employee, e.empl_surname, e.empl_name, c.category_number, c.category_name,
+                   COUNT(DISTINCT ch.check_number) AS checks_cnt,
+                   SUM(s.product_number) AS units,
+                   SUM(s.product_number * s.selling_price) AS revenue
+            FROM Employee e
+            JOIN "Check_AIS" ch ON e.id_employee = ch.id_employee
+            JOIN Sale s ON ch.check_number = s.check_number
+            JOIN Store_Product sp ON s.UPC = sp.UPC
+            JOIN Product p ON sp.id_product = p.id_product
+            JOIN Category c ON p.category_number = c.category_number
+            WHERE e.empl_role = 'Касир'
     """
+    
     au_params = []
     if au_cat_id:
         au_query += " AND p.category_number = ?"
@@ -650,10 +653,20 @@ def ui_reports(
     if au_period_on:
         au_query += " AND DATE(ch.print_date) BETWEEN ? AND ?"
         au_params += [au_from, au_to]
+        
     au_query += """
-        GROUP BY e.id_employee, e.empl_surname, c.category_number, c.category_name
-        ORDER BY revenue DESC, e.empl_surname
+            GROUP BY e.id_employee, e.empl_surname, e.empl_name, c.category_number, c.category_name
+        ),
+        RankedSales AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (PARTITION BY category_number ORDER BY revenue DESC) as rank_num
+            FROM CategorySales
+        )
+        SELECT * FROM RankedSales
+        WHERE rank_num = 1
+        ORDER BY category_name
     """
+    
     cursor.execute(au_query, au_params)
     cashier_audit = [dict(x) for x in cursor.fetchall()]
 

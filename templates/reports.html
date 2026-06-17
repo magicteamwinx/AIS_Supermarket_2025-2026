@@ -417,8 +417,8 @@
   <table class="cat-table">
     <thead>
       <tr>
-        <th style="width:26%">Касир</th>
-        <th style="width:24%">Категорія</th>
+        <th style="width:26%">Категорія</th>
+        <th style="width:24%">Найкращий касир</th>
         <th style="width:16%" class="r">Чеків</th>
         <th style="width:16%" class="r">Одиниць</th>
         <th style="width:18%" class="r">Виручка</th>
@@ -427,8 +427,8 @@
     <tbody>
       {% for x in cashier_audit %}
       <tr>
-        <td>{{ x.empl_surname }} {{ x.empl_name }}</td>
         <td class="muted">{{ x.category_name }}</td>
+        <td><strong>{{ x.empl_surname }} {{ x.empl_name }}</strong></td>
         <td class="r">{{ x.checks_cnt }}</td>
         <td class="r">{{ x.units }}</td>
         <td class="r"><strong>{{ '%.2f'|format(x.revenue) }} ₴</strong></td>
